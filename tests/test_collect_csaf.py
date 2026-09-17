@@ -10,7 +10,12 @@ import httpx
 import respx
 
 from strata import net
-from strata.collect.cisa_csaf import RAW_BASE, TREE_URL, CISACSAFCollector
+from strata.collect.cisa_csaf import (
+    RAW_BASE,
+    TREE_URL,
+    CISACSAFCollector,
+    _extract_product_tree_text,
+)
 from strata.model import store
 
 
@@ -88,6 +93,78 @@ def test_csaf_collect_lands_advisories_vulns_and_describes_edges(
         """
     ).fetchone()
     assert joined["n"] == 4
+
+    net_client.close()
+    conn.close()
+
+
+def test_extract_product_tree_text_from_real_shaped_fixture(fixtures_dir: Path) -> None:
+    doc = json.loads((fixtures_dir / "csaf_advisory_sample.json").read_text(encoding="utf-8"))
+    text = _extract_product_tree_text(doc)
+    assert text is not None
+    assert "Columbia Weather Systems MicroServer firmware: <MS_4.1_14142" in text
+
+
+def test_extract_product_tree_text_none_when_no_product_tree() -> None:
+    assert _extract_product_tree_text({}) is None
+    assert _extract_product_tree_text({"product_tree": {}}) is None
+
+
+def test_extract_product_tree_text_full_product_names_shape() -> None:
+    doc = {
+        "product_tree": {
+            "full_product_names": [
+                {"name": "Acme Modbus Gateway v2", "product_id": "CSAFPID-1"},
+                {"name": "Acme BACnet Router v1", "product_id": "CSAFPID-2"},
+            ]
+        }
+    }
+    text = _extract_product_tree_text(doc)
+    assert text == "Acme Modbus Gateway v2 | Acme BACnet Router v1"
+
+
+@respx.mock
+def test_csaf_collect_lands_csaf_product_text_on_vuln_attrs(
+    tmp_path: Path, fixtures_dir: Path
+) -> None:
+    """A CSAF advisory's product_tree text lands on the vuln node's
+    csaf_product_text attr, citing the same per-advisory source_id the
+    collector already creates for that advisory."""
+    tree_fixture = json.loads(
+        (fixtures_dir / "csaf_tree_sample.json").read_text(encoding="utf-8")
+    )
+    respx.get(TREE_URL).mock(return_value=httpx.Response(200, json=tree_fixture))
+
+    base_advisory = json.loads(
+        (fixtures_dir / "csaf_advisory_sample.json").read_text(encoding="utf-8")
+    )
+    expected_paths = [
+        "csaf_files/OT/white/2026/icsa-26-015-02.json",
+        "csaf_files/OT/white/2026/icsa-26-013-01.json",
+        "csaf_files/IT/white/2026/va-26-008-01.json",
+        "csaf_files/OT/white/2026/icsa-26-006-01.json",
+    ]
+    for i, path in enumerate(expected_paths):
+        doc = copy.deepcopy(base_advisory)
+        tracking_id = f"ADVISORY-{i}"
+        doc["document"]["tracking"]["id"] = tracking_id
+        doc["vulnerabilities"] = [{"cve": f"CVE-2025-{2000 + i}"}]
+        url = RAW_BASE + path
+        respx.get(url).mock(return_value=httpx.Response(200, json=doc))
+
+    net_client = _make_net_client(tmp_path)
+    conn = store.get_connection(tmp_path / "strata.db")
+
+    collector = CISACSAFCollector(net_client)
+    collector.run(conn, offline=False)
+
+    row = conn.execute(
+        "SELECT attrs FROM node WHERE id = ? AND type = 'vuln'",
+        ("CVE-2025-2000",),
+    ).fetchone()
+    assert row is not None
+    attrs = json.loads(row["attrs"])
+    assert "Columbia Weather Systems MicroServer firmware" in attrs["csaf_product_text"]
 
     net_client.close()
     conn.close()

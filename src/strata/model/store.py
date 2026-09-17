@@ -128,6 +128,17 @@ def insert_node(
     and must not clobber each other's fields. If either side's ``attrs``
     is not valid JSON, this falls back to the new value verbatim.
 
+    If the *new* ``attrs`` argument is ``None`` (a caller that only cares
+    about the node's id/type/label existing -- e.g. ``normalize/corpus.py``
+    stub-creating a vuln node for a group's ``exploits`` entry, which
+    carries no attrs of its own), any existing attrs already on that node
+    id are preserved as-is rather than wiped to ``NULL``. Without this, a
+    later, attrs-less re-insert (e.g. re-running ``strata corpus load``
+    after a collector has already populated real KEV/NVD/CSAF attrs on
+    that same CVE id) would silently destroy previously-collected data on
+    every rerun -- a real regression found and fixed in this pass, not a
+    hypothetical.
+
     Invariant this relies on: each collector writes a disjoint set of
     attrs keys (e.g. NVD writes cvss_v31_base/cvss_vector/cwe/
     nvd_published; KEV/CSAF write different named fields). This merge is
@@ -171,7 +182,7 @@ def insert_node(
         ON CONFLICT(id) DO UPDATE SET
             type = excluded.type,
             label = excluded.label,
-            attrs = excluded.attrs
+            attrs = COALESCE(excluded.attrs, node.attrs)
         """,
         {
             "id": id,
@@ -272,6 +283,55 @@ def delete_edges_by_type(conn: sqlite3.Connection, type: str) -> int:
     return cur.rowcount
 
 
+def get_exploits_edges_with_note(conn: sqlite3.Connection) -> list[dict]:
+    """Return every ``exploits`` edge whose ``note`` column is non-null.
+
+    ``normalize/corpus.py`` writes a group corpus entry's optional
+    ``Exploit.first_seen`` date into the ``exploits`` edge's ``note``
+    column (see ``normalize/models.py``). ``enrich/timeline.py`` reads
+    this back to compute ``t_group_observed``/``disclosure_to_group_use``
+    per CVE.
+
+    Returns:
+        A list of ``{"src_id": <group node id>, "dst_id": <CVE id>,
+        "note": <ISO date string>, "source_id": <source id>}`` dicts, one
+        per ``exploits`` edge with a non-null ``note``.
+    """
+    rows = conn.execute(
+        "SELECT src_id, dst_id, note, source_id FROM edge "
+        "WHERE type = 'exploits' AND note IS NOT NULL"
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_describing_advisory_source_id(conn: sqlite3.Connection, cve: str) -> str | None:
+    """Return the source_id of the CSAF advisory describing this CVE, if any.
+
+    Used by ``enrich/protocol.py`` to cite a CSAF-product-tree-based
+    classifier match to the advisory's own per-file source row (e.g.
+    ``cisa-csaf-ICSA-26-006-01``), not NVD's -- resolved via the
+    ``describes`` edge (``advisory -[:describes]-> vuln``), whose own
+    ``source_id`` already *is* the advisory's per-file source row (see
+    ``collect/cisa_csaf.py``'s ``normalize()``), so no further join
+    through the advisory node itself is needed.
+
+    If a CVE is described by more than one CSAF advisory, the
+    lexicographically-first edge id is returned -- a documented
+    simplification, since today's real corpus has no CVE described by
+    more than one CSAF advisory.
+
+    Returns:
+        The advisory's source id, or ``None`` if no ``describes`` edge
+        targets this CVE.
+    """
+    row = conn.execute(
+        "SELECT source_id FROM edge WHERE type = 'describes' AND dst_id = ? "
+        "ORDER BY id LIMIT 1",
+        (cve,),
+    ).fetchone()
+    return row["source_id"] if row is not None else None
+
+
 def source_exists(conn: sqlite3.Connection, source_id: str) -> bool:
     """Return True if ``source_id`` names an existing ``source`` row.
 
@@ -363,6 +423,66 @@ def get_all_products(conn: sqlite3.Connection) -> list[dict]:
                 attrs = None
         products.append({"id": row["id"], "label": row["label"], "attrs": attrs})
     return products
+
+
+def get_advisory_cve_dates_by_vendor(
+    conn: sqlite3.Connection, vendor_names: list[str]
+) -> list[dict]:
+    """Return per-advisory (vendor, disclosure date, described CVE) rows.
+
+    Used by ``hunt/methods.py``'s H010 vendor-patch-latency computation:
+    for each vendor PSIRT collector's ``source.name`` (e.g.
+    ``"siemens-psirt"``), joins that vendor's ``source`` rows to the
+    ``advisory`` node they describe (via the synthetic
+    ``source.id = f"{vendor}-{tracking_id}"`` convention every vendor CSAF
+    collector uses) and on to each CVE the advisory's ``describes`` edges
+    name. The advisory's own ``initial_release_date`` (stored in the
+    advisory node's ``attrs``, not just ``source.fetched_at``) is the
+    vendor's real disclosure date this hunt needs.
+
+    Args:
+        conn: Open database connection.
+        vendor_names: The ``source.name`` values to include (e.g.
+            ``["siemens-psirt", "schneider-psirt"]``).
+
+    Returns:
+        A list of dicts: ``vendor``, ``advisory_id``,
+        ``initial_release_date`` (str or None), ``cve_id``.
+    """
+    if not vendor_names:
+        return []
+    placeholders = ",".join("?" for _ in vendor_names)
+    rows = conn.execute(
+        f"""
+        SELECT s.name AS vendor, a.id AS advisory_id, a.attrs AS advisory_attrs,
+               d.dst_id AS cve_id
+        FROM source s
+        JOIN edge d ON d.source_id = s.id AND d.type = 'describes'
+        JOIN node a ON a.id = d.src_id AND a.type = 'advisory'
+        WHERE s.name IN ({placeholders})
+        ORDER BY s.name, a.id, d.dst_id
+        """,
+        vendor_names,
+    ).fetchall()
+
+    results: list[dict] = []
+    for row in rows:
+        initial_release_date = None
+        if row["advisory_attrs"]:
+            try:
+                attrs = json.loads(row["advisory_attrs"])
+                initial_release_date = attrs.get("initial_release_date")
+            except json.JSONDecodeError:
+                initial_release_date = None
+        results.append(
+            {
+                "vendor": row["vendor"],
+                "advisory_id": row["advisory_id"],
+                "initial_release_date": initial_release_date,
+                "cve_id": row["cve_id"],
+            }
+        )
+    return results
 
 
 def get_all_group_nodes(conn: sqlite3.Connection) -> list[dict]:

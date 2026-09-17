@@ -45,6 +45,53 @@ N_ADVISORIES = 25
 _FILENAME_RE = re.compile(r"-(\d{2})-(\d{3})-(\d+)\.json$")
 
 
+def _extract_product_tree_text(document: dict) -> str | None:
+    """Join every product name found in a CSAF document's product_tree.
+
+    Recurses through the common ``product_tree.branches[].branches[]...``
+    shape (vendor -> product_name -> product_version_range -> product,
+    see tests/fixtures/csaf_advisory_sample.json), collecting each leaf
+    branch's ``product.name``, and also collects the flatter alternative
+    CSAF shape ``product_tree.full_product_names[].name``. Feeds
+    enrich/protocol.py's classifier (spec section 6.2's other stated
+    input, alongside NVD descriptions) via the vuln node's
+    ``csaf_product_text`` attr.
+
+    Args:
+        document: A parsed CSAF JSON document (the whole top-level dict).
+
+    Returns:
+        A single string joining every distinct product name found (order
+        preserved, first occurrence wins on duplicates), or None if the
+        document has no product_tree or no names were found.
+    """
+    product_tree = document.get("product_tree") or {}
+    names: list[str] = []
+
+    def _walk(branches: list[dict]) -> None:
+        for branch in branches:
+            if not isinstance(branch, dict):
+                continue
+            product = branch.get("product")
+            if isinstance(product, dict) and product.get("name"):
+                names.append(str(product["name"]))
+            sub_branches = branch.get("branches")
+            if isinstance(sub_branches, list):
+                _walk(sub_branches)
+
+    top_branches = product_tree.get("branches")
+    if isinstance(top_branches, list):
+        _walk(top_branches)
+
+    for fpn in product_tree.get("full_product_names") or []:
+        if isinstance(fpn, dict) and fpn.get("name"):
+            names.append(str(fpn["name"]))
+
+    if not names:
+        return None
+    return " | ".join(dict.fromkeys(names))
+
+
 def _sort_key(path: str) -> tuple[int, int, int]:
     """Best-effort chronological sort key extracted from CSAF filenames.
 
@@ -120,6 +167,7 @@ class CISACSAFCollector(Collector):
                 "initial_release_date": initial_release_date,
                 "title": data.get("document", {}).get("title"),
                 "cves": cves,
+                "csaf_product_text": _extract_product_tree_text(data),
                 "_fetch_result": fetch_result,
             }
         ]
@@ -162,6 +210,13 @@ class CISACSAFCollector(Collector):
                 )
             )
 
+            product_text = record.get("csaf_product_text")
+            vuln_attrs = (
+                json.dumps({"csaf_product_text": product_text})
+                if product_text
+                else None
+            )
+
             for cve in record["cves"]:
                 if cve not in seen_vuln_nodes:
                     seen_vuln_nodes.add(cve)
@@ -170,7 +225,7 @@ class CISACSAFCollector(Collector):
                             id=cve,
                             type="vuln",
                             label=cve,
-                            attrs=None,
+                            attrs=vuln_attrs,
                             created_at=fetched_at,
                         )
                     )

@@ -211,6 +211,42 @@ def test_node_attrs_merge_upsert_new_key_wins_on_overlap(
     assert json.loads(row["attrs"])["cvss_v31_base"] == 9.8
 
 
+def test_node_attrs_none_on_reinsert_preserves_existing_attrs(
+    db_conn: sqlite3.Connection,
+) -> None:
+    """Regression test: a later insert_node call with attrs=None (e.g.
+    normalize/corpus.py stub-creating a vuln node for an exploits entry
+    that carries no attrs of its own) must not wipe attrs a collector
+    already populated on that same node id -- this previously happened
+    because ON CONFLICT unconditionally set attrs = excluded.attrs, which
+    is NULL when the caller passes attrs=None."""
+    import json
+
+    store.insert_node(
+        db_conn,
+        id="CVE-2024-7000",
+        type="vuln",
+        label="CVE-2024-7000",
+        attrs=json.dumps({"date_added": "2024-01-01", "cvss_v31_base": 9.8}),
+        created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_node(
+        db_conn,
+        id="CVE-2024-7000",
+        type="vuln",
+        label="CVE-2024-7000",
+        attrs=None,
+        created_at="2026-01-01T00:00:00Z",
+    )
+    row = db_conn.execute(
+        "SELECT attrs FROM node WHERE id = ?", ("CVE-2024-7000",)
+    ).fetchone()
+    assert row["attrs"] is not None
+    merged = json.loads(row["attrs"])
+    assert merged["date_added"] == "2024-01-01"
+    assert merged["cvss_v31_base"] == 9.8
+
+
 def test_get_all_vuln_cve_ids(db_conn: sqlite3.Connection) -> None:
     store.insert_node(
         db_conn,

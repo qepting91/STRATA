@@ -1,0 +1,41 @@
+{
+  "feed": {
+    "id": "siemens-security-advisories-csaf-feed-tlp-white",
+    "title": "Siemens Security Advisories CSAF feed (TLP:WHITE)",
+    "updated": "2026-09-16T00:00:00Z",
+    "entry": [
+      {
+        "id": "SSA-823812",
+        "title": "Denial of Service Vulnerability in WTV676 and WTV776 devices",
+        "link": [
+          {
+            "rel": "self",
+            "href": "https://cert-portal.siemens.com/productcert/csaf/ssa-823812.json"
+          }
+        ],
+        "published": "2026-09-16T00:00:00Z",
+        "updated": "2026-09-16T00:00:00Z",
+        "content": {
+          "type": "application/json",
+          "src": "https://cert-portal.siemens.com/productcert/csaf/ssa-823812.json"
+        }
+      },
+      {
+        "id": "SSA-019113",
+        "title": "Vulnerabilities in the additional GNU/Linux subsystem of the SIMATIC S7-1500",
+        "link": [
+          {
+            "rel": "self",
+            "href": "https://cert-portal.siemens.com/productcert/csaf/ssa-019113.json"
+          }
+        ],
+        "published": "2026-07-14T00:00:00Z",
+        "updated": "2026-09-08T00:00:00Z",
+        "content": {
+          "type": "application/json",
+          "src": "https://cert-portal.siemens.com/productcert/csaf/ssa-019113.json"
+        }
+      }
+    ]
+  }
+}

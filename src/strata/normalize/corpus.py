@@ -224,6 +224,13 @@ def load_corpus(
                 id=f"{entry.id}--exploits--{exploit.cve}",
                 src_id=entry.id, dst_id=exploit.cve,
                 type="exploits", source_id=src_id,
+                # first_seen (if the corpus entry has one) is stored in the
+                # edge's note column -- the same mechanism enrich/protocol.py
+                # uses for classifier evidence, applied here to a different
+                # edge type: an ISO date string, not evidence text. Read
+                # back by enrich/timeline.py's disclosure_to_group_use
+                # computation via store.get_exploits_edges_with_note().
+                note=exploit.first_seen,
             )
             summary.edges += 1
 

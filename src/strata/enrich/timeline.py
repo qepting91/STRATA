@@ -7,12 +7,17 @@ PoC-corroboration-tiered t_first_poc / t_first_poc_claimed, t_nuclei_template,
 t_metasploit, and t_kev. Derived intervals are written as metric_observation
 rows.
 
-Known, documented scope reduction: t_group_observed and
-disclosure_to_group_use are NOT computed this week. The corpus format built
-in Week 2 has no first_seen date on a group exploits entries (unlike the
-spec illustrative section 5.6 example), so there is no data to compute it
-from. Adding that would mean re-researching first-observed-use dates for
-every corpus exploit claim -- deferred to a later week.
+t_group_observed / disclosure_to_group_use (added post-Week-4): for every
+`exploits` edge whose `note` column carries a real first_seen date (see
+normalize/models.py's Exploit.first_seen and normalize/corpus.py), that
+date is treated as t_group_observed for the CVE it targets, and
+disclosure_to_group_use = t_group_observed - t_disclosed is written as a
+metric_observation row, cited to the exploits edge's own source_id (the
+same publisher/article that supports the first_seen claim -- real,
+correct provenance, not a stand-in). This remains a real, documented
+scope limitation: only SYLVANITE's 5 corpus exploits entries currently
+carry a first_seen date, so this metric is not (yet) computable for any
+other group's exploits claims.
 """
 
 from __future__ import annotations
@@ -76,6 +81,7 @@ _DERIVED_METRIC_NAMES = (
     "poc_to_kev_days",
     "detection_lag_days",
     "patch_available_at_kev",
+    "disclosure_to_group_use",
 )
 
 
@@ -320,10 +326,13 @@ def run(conn) -> dict:
     cves_with_disclosure = 0
     metrics_written = 0
     patched_after_kev = 0
+    group_use_written = 0
+    timelines_by_cve: dict[str, CveTimeline] = {}
 
     for vuln in vulns:
         cve = vuln["id"]
         tl = compute_cve_timeline(conn, vuln)
+        timelines_by_cve[cve] = tl
         if tl.t_disclosed is not None:
             cves_with_disclosure += 1
 
@@ -378,9 +387,32 @@ def run(conn) -> dict:
             if not is_patched_before_kev:
                 patched_after_kev += 1
 
+    # disclosure_to_group_use: for every exploits edge carrying a
+    # first_seen date (normalize/corpus.py writes it into the edge's
+    # note column), treat that date as t_group_observed for the CVE and
+    # compute the interval against t_disclosed, if known. Cited to the
+    # exploits edge's own source_id -- the same publisher/article that
+    # supports the first_seen claim, real correct provenance.
+    for edge_row in store.get_exploits_edges_with_note(conn):
+        cve = edge_row["dst_id"]
+        t_group_observed = _parse_date(edge_row["note"])
+        if t_group_observed is None:
+            continue
+        tl = timelines_by_cve.get(cve)
+        if tl is None or tl.t_disclosed is None:
+            continue
+        if _write_interval_metric(
+            conn, cve=cve, metric_name="disclosure_to_group_use",
+            start=tl.t_disclosed, end=t_group_observed,
+            source_id=edge_row["source_id"], fetched_at=fetched_at,
+        ):
+            metrics_written += 1
+            group_use_written += 1
+
     return {
         "cves_examined": len(vulns),
         "cves_with_disclosure": cves_with_disclosure,
         "metrics_written": metrics_written,
         "patched_after_kev": patched_after_kev,
+        "disclosure_to_group_use_written": group_use_written,
     }

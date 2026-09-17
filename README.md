@@ -150,11 +150,11 @@ vendor/product as the literal string `"none"` was fixed defensively.
   `simpleeval`, never Python `eval`). Ten curated hunts in `hunts/*.yaml`
   (H001–H010, spec §7.4), each wired to a real query/traversal/function
   over the actual graph — no hardcoded thresholds or fabricated numbers.
-  **Real board, run this week: 4 SUPPORTED (H003, H005, H007, H009), 1
-  REFUTED (H001), 5 INSUFFICIENT (H002, H004, H006, H008, H010)** — a
-  genuinely mixed board, not curated to look better than the data
-  supports. `strata hunt list`, `strata hunt run <ID> [--format table|json]`,
-  `strata hunt run --all`.
+  **Real board: 5 SUPPORTED (H002, H003, H005, H007, H009), 1 REFUTED
+  (H001), 4 INSUFFICIENT (H004, H006, H008, H010)** — a genuinely mixed
+  board, not curated to look better than the data supports. `strata hunt
+  list`, `strata hunt run <ID> [--format table|json]`, `strata hunt run
+  --all`.
 - `export/` package — `export/storm.py` (a generated, syntax-checked
   Synapse Storm script; paired queries in `docs/storm-queries.md`),
   `export/stix.py` (a STIX 2.1 bundle, `intrusion-set`/`malware`/`tool`/
@@ -178,6 +178,66 @@ vendor/product as the literal string `"none"` was fixed defensively.
   to what this implementation's real hunt board actually shows (see
   below).
 
+## Working through the INSUFFICIENT hunts
+
+After Week 4, five hunts were INSUFFICIENT. Rather than leave that
+untouched, each gap was investigated on its own terms — closed with real
+data where real data exists, left honestly INSUFFICIENT (with a richer,
+specific `telemetry_gap`) where it doesn't:
+
+- **H002 (closed — now SUPPORTED)**: Mandiant's and SecurityAffairs's own
+  reporting (already cited as S-0004/S-0005/S-0006) gives concrete
+  first-observed-exploitation dates for all 5 of SYLVANITE's CVEs —
+  added as `first_seen` on each corpus `exploits` entry (no new
+  citations needed), stored on the `exploits` edge's `note` column, and
+  read back by `enrich/timeline.py` to compute `t_group_observed`/
+  `disclosure_to_group_use`. Real result: n=5 (SYLVANITE only — the
+  other 7 groups' exploits lists still have no first_seen data),
+  median **-38 days** — a genuinely interesting negative number
+  reflecting real zero-day exploitation that predated public disclosure,
+  not a data error.
+- **H008 (investigated, real code change, verdict unchanged)**: extended
+  `collect/cisa_csaf.py` to extract CSAF advisory `product_tree` text and
+  `enrich/protocol.py` to classify it too (citing the CSAF advisory's own
+  source, not NVD's) — closing the documented Week 3 gap. Real result:
+  one additional `involves` edge, still only 3 distinct protocol-matching
+  CVEs total, so still INSUFFICIENT for a trend claim — but now for the
+  right reason (the corpus's real base rate is that low), not a known
+  code gap.
+- **H010 (closed — collectors built, verdict is honest, not force-fed)**:
+  built two new, live-verified vendor-PSIRT collectors — Siemens
+  ProductCERT (`collect/siemens_psirt.py`, ROLIE feed) and Schneider
+  Electric CPCERT (`collect/schneider_psirt.py`, `changes.csv`
+  distribution) — giving H010 its first real per-vendor disclosure
+  dates. Live collection found only 6 Siemens and 1 Schneider advisory
+  with a computable latency point (most fetched advisories are for very
+  recent CVEs NVD/KEV haven't dated yet). `hunt/methods.py`'s
+  `h010_vendor_patch_latency` requires **every** vendor with any data to
+  have ≥3 latency points before trusting a comparison — on this real,
+  thin sample that correctly keeps H010 INSUFFICIENT rather than
+  reporting SUPPORTED off a single Schneider data point, which an
+  earlier, looser gate briefly did before being tightened.
+- **H004 and H006 (investigated, genuine dead ends — still
+  INSUFFICIENT)**: real web research found no source tying two of the 8
+  tracked groups to the same named tool (H004), and confirmed VOLTZITE's
+  own public reporting really does describe compromising Sierra Wireless
+  AirLink cellular gateways (H006) — but the one CVE publicly tied to
+  that hardware (CVE-2018-4063) is attributed by other researchers to an
+  unrelated, unattributed cluster, not VOLTZITE. Citing it as a VOLTZITE
+  exploit would have been a fabricated attribution. Both hunts'
+  `telemetry_gap` fields document exactly what was searched for and why
+  it doesn't close the gap, rather than a generic "no data" placeholder.
+
+Also found and fixed along the way: a real pre-existing bug in
+`store.insert_node`'s merge-upsert (`ON CONFLICT DO UPDATE SET attrs =
+excluded.attrs` unconditionally wiped a node's real attrs to `NULL`
+whenever any caller re-inserted with `attrs=None` — exactly what
+`normalize/corpus.py` does when stub-creating a vuln node for an
+`exploits` entry — silently destroying KEV/NVD/CSAF-populated attrs on
+every `strata build` rebuild for any CVE also referenced by a corpus
+entry). Fixed via `COALESCE(excluded.attrs, node.attrs)`, with a
+regression test.
+
 ## Limitations and known gaps
 
 This section consolidates the caveats already documented in detail across
@@ -186,20 +246,25 @@ plus this week's hunt/report findings — read the linked section for the
 full story on any one item; this is the scannable summary.
 
 **Collection scope**
-- No vendor-PSIRT collector was ever built (Siemens/Schneider/Hitachi/
-  Cisco/Palo Alto/Fortinet/Ivanti — see SOURCES.md, "Deliberately not
-  collected"). There is no per-vendor patch-disclosure date anywhere in
-  the schema; this is the direct cause of H010's INSUFFICIENT verdict.
-- The CISA CSAF collector never extracts `product_tree` text, so the
-  protocol classifier (`enrich/protocol.py`) reads NVD CVE description
-  text only, not the fuller input set the spec's §6.2 describes.
+- 2 of the spec's 7 named vendor-PSIRT collectors are now built (Siemens
+  ProductCERT, Schneider Electric CPCERT); Hitachi/Cisco/Palo Alto/
+  Fortinet/Ivanti remain uncollected (see SOURCES.md, "Deliberately not
+  collected"). H010 now has real per-vendor disclosure dates, but on a
+  thin sample (6 Siemens + 1 Schneider computable data points) — its
+  `min_n_per_vendor >= 3` gate correctly keeps it INSUFFICIENT rather
+  than overclaiming from that.
+- The CISA CSAF collector now extracts `product_tree` text and the
+  protocol classifier reads it alongside NVD descriptions, but this only
+  added 1 new match — the corpus's real protocol-CVE base rate is
+  genuinely low (H008 is still INSUFFICIENT for a trend claim, correctly).
 - CSAF file discovery is a most-recent-`N=25` sample with best-effort,
   client-side `--since` filtering (see "CSAF file-discovery assumption"
   above) — not a complete historical backfill.
-- `t_group_observed`/`disclosure_to_group_use` was never computed: the
-  corpus's group-entry format has no `first_seen` date on a group's
-  `exploits` claims. This is why H002 is INSUFFICIENT rather than merely
-  small-sample.
+- `t_group_observed`/`disclosure_to_group_use` is now computed for
+  SYLVANITE's 5 corpus `exploits` entries (real Mandiant/SecurityAffairs
+  first-observed dates) — H002 is SUPPORTED, but only 1 of 8 groups has
+  this data; the other 7 groups' public sourcing never named a specific
+  CVE to attach a first_seen date to in the first place.
 
 **Corpus coverage**
 - Only **1 of 8** hand-curated groups (sylvanite) has any publicly named
@@ -222,10 +287,11 @@ full story on any one item; this is the scannable summary.
   positives is not the same statistical claim as a perfect score on 300.
   See "Protocol classifier validation" above and
   `tests/fixtures/protocol_validation_labels.json`.
-- Several hunts (H002, H004, H006, H008) rest on single-digit or
+- Several hunts (H002, H004, H006, H008, H010) rest on single-digit or
   low-double-digit sample sizes for the same underlying reason: the
   corpus is 8 hand-curated groups whose public sourcing rarely names
-  specific CVEs or tools.
+  specific CVEs or tools, and the newest vendor-PSIRT advisories are too
+  recent for NVD/KEV to have dated yet.
 
 **Reporting lag** — every date this pipeline uses (KEV `dateAdded`, CSAF
 `initial_release_date`, NVD `nvd_published`) is a *publication* date, not
@@ -234,7 +300,7 @@ a ground-truth first-use or first-disclosure date. Every derived interval
 upper or lower bound, never an exact measurement.
 
 **The hunt board itself is the strongest evidence this is being taken
-seriously**: 4 SUPPORTED, 1 REFUTED, 5 INSUFFICIENT is a genuinely mixed
+seriously**: 5 SUPPORTED, 1 REFUTED, 4 INSUFFICIENT is a genuinely mixed
 result, not a curated all-green board — see `reports/<date>-ot-capability-
 assessment.md` section 6 ("Confidence and limitations") for the full,
 generated version of this section, re-derived from the live graph every
@@ -281,8 +347,10 @@ report.md.j2`) with `strata report`; this consolidated "Limitations and
 known gaps" section; and `docs/demo.md`, the 90-second interview demo
 script. See "What's built (Week 4)" above for the per-module detail.
 
-**Not implemented yet:** vendor-PSIRT collectors and the Streamlit UI
-(`src/strata/ui/`, tracked separately).
+**Not implemented yet:** 5 of 7 spec-listed vendor-PSIRT collectors
+(Siemens and Schneider Electric now built, see "Working through the
+INSUFFICIENT hunts" below) and the Streamlit UI (`src/strata/ui/`,
+tracked separately).
 
 ## Current scope — Week 1 + Week 2 + Week 3
 

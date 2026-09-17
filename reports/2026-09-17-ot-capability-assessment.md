@@ -12,7 +12,7 @@ database.*
 
 - **[H001, moderate confidence, verdict REFUTED]** No product in the corpus currently has confirmed exploitation by 2+ distinct threat-actor clusters (0 qualifying products found among 5 total exploits edges). Refuted, but this is at least as much a sourcing-coverage artifact (only 1 of 8 corpus groups has any named exploited CVE) as it is a finding about real-world convergence.
 - **[H003, high confidence, verdict SUPPORTED]** A vendor fix or public advisory predated CISA KEV listing for ~96.37% of 1707 scored CVEs -- for most KEV-listed OT-relevant CVEs, the operational bottleneck is patch *application*, not patch *availability*.
-- **[H005, moderate confidence, verdict SUPPORTED]** Of 357 KEV-flagged ransomware CVEs, 0 also involve an ICS-native protocol (overlap rate 0.0%) -- ransomware's operational impact on industrials in this corpus runs through IT-side systems, not OT protocol-native paths.
+- **[H005, moderate confidence, verdict SUPPORTED]** Of 360 KEV-flagged ransomware CVEs, 0 also involve an ICS-native protocol (overlap rate 0.0%) -- ransomware's operational impact on industrials in this corpus runs through IT-side systems, not OT protocol-native paths.
 - **[H007, moderate confidence, verdict SUPPORTED]** Purdue level 3.5 (edge / IT-OT boundary) products carry affects edges from 43 distinct CVEs, versus 5 for Purdue level 1 (PLC/RTU/field-device) products -- adversary-relevant CVE mass concentrates at the boundary, not the field-device layer, within this corpus's Purdue-classified subset.
 - **[H009, high confidence, verdict SUPPORTED]** Starting from sylvanite (a Stage 1 initial-access group), a 3-hop traversal over hands_off_to/uses/exploits edges reaches 11 distinct nodes ({'vuln': 5, 'tool': 5, 'group': 1}) -- a real, bounded Stage 2 capability set a defender can act on without waiting for a fresh incident report.
 
@@ -20,11 +20,11 @@ database.*
 
 ## 2. Scope and method
 
-**Sources collected** (10 named collector/loader sources, 1823 total `source` rows for provenance):
+**Sources collected** (12 named collector/loader sources, 1883 total `source` rows for provenance):
 
 - `attack` -- latest fetch `2026-09-17T15:04:31.207810+00:00`
-- `cisa-csaf` -- latest fetch `2026-09-17T15:04:30.861843+00:00`
-- `cisa-kev` -- latest fetch `2026-09-17T15:04:30.735963+00:00`
+- `cisa-csaf` -- latest fetch `2026-09-17T17:18:46.897883+00:00`
+- `cisa-kev` -- latest fetch `2026-09-17T17:18:44.696141+00:00`
 - `corpus` -- latest fetch `2026-09-17`
 - `epss` -- latest fetch `2026-09-17T15:05:16.767365+00:00`
 - `exploitdb` -- latest fetch `2026-09-17T15:05:17.417196+00:00`
@@ -32,10 +32,12 @@ database.*
 - `nuclei` -- latest fetch `2026-09-17T15:05:22.001574+00:00`
 - `nvd` -- latest fetch `2026-09-17T15:05:14.362168+00:00`
 - `poc-github` -- latest fetch `2026-09-17T15:05:17.174093+00:00`
+- `schneider-psirt` -- latest fetch `2026-09-17T17:21:09.352466+00:00`
+- `siemens-psirt` -- latest fetch `2026-09-17T17:20:31.849599+00:00`
 
-**Collection window:** earliest fetch `2026-09-17`, latest fetch `2026-09-17T15:05:22.101599+00:00`. This is a point-in-time snapshot of public CISA/NVD/MITRE/FIRST.org/GitHub-hosted feeds plus a hand-curated 8-group threat corpus (`corpus/groups/*.yaml`), not a continuously-updating feed.
+**Collection window:** earliest fetch `2026-09-17`, latest fetch `2026-09-17T17:21:09.352466+00:00`. This is a point-in-time snapshot of public CISA/NVD/MITRE/FIRST.org/GitHub-hosted feeds plus a hand-curated 8-group threat corpus (`corpus/groups/*.yaml`), not a continuously-updating feed.
 
-**Current graph size:** {'advisory': 24, 'geo': 13, 'group': 9, 'product': 2859, 'protocol': 1, 'sector': 20, 'technique': 794, 'tool': 17, 'vendor': 355, 'vuln': 1790} nodes by type; {'affects': 9917, 'describes': 77, 'exploits': 5, 'hands_off_to': 4, 'implements': 14, 'involves': 3, 'made_by': 2859, 'targets': 65, 'uses': 17} edges by type.
+**Current graph size:** {'advisory': 84, 'geo': 13, 'group': 9, 'product': 2859, 'protocol': 1, 'sector': 20, 'technique': 794, 'tool': 17, 'vendor': 355, 'vuln': 2347} nodes by type; {'affects': 9917, 'describes': 655, 'exploits': 5, 'hands_off_to': 4, 'implements': 14, 'involves': 4, 'made_by': 2859, 'targets': 65, 'uses': 17} edges by type.
 
 **What was excluded, and why** (real, documented gaps from Weeks 1-3 --
 see `SOURCES.md` and `README.md` for full detail):
@@ -66,15 +68,15 @@ a curated dataset, not a good analyst.
 
 ### H002 -- Time from public PoC to observed OT exploitation, by threat group
 
-**VERDICT: INSUFFICIENT**
+**VERDICT: SUPPORTED**
 
 *Hypothesis:* Stage 1 initial-access groups targeting OT begin exploiting edge-device N-days within 14 days of the first public proof-of-concept.
 
 *Rationale:* Public reporting describes near-immediate weaponization but supplies no measured interval. If true, OT patch SLAs measured in months are structurally unable to close the window.
 
-*Real result:* `n=0, groups_with_n_gte_3=0, median_days=None`
+*Real result:* `n=5, groups_with_n_gte_3=0, median_days=-38.0`
 
-*Telemetry gap:* disclosure_to_group_use was never computed (documented Week 3 scope reduction): the corpus group-entry format has no first_seen date on a group's exploits claims, unlike the spec's own illustrative example. There are zero metric_observation rows for this metric_name at all -- computing it for real would require re-researching first-observed-use dates for every corpus exploit claim, which is out of scope for this pass. This is an honest absence, not a small-sample artifact.
+*Telemetry gap:* disclosure_to_group_use is now computed for real (post-Week-4): SYLVANITE's 5 corpus exploits entries each carry a real, cited first_seen date (Mandiant/SecurityAffairs, already S-0004/S-0005/S-0006), giving n=5 real metric_observation rows. But this coverage is entirely one group -- the other 7 groups in the corpus have either no exploits list at all, or (where one exists) no publicly documented first-observed-use date to cite, so SYLVANITE alone clears this hunt's n>=3 bar. A verdict computed from a single group's 5 CVEs (all against 2 product families, Ivanti and SAP, within an ~18-month window) is real data, not a small-sample artifact of missing rows -- but it is also not the cross-group, illustrative comparison the hypothesis as written implies. Extending this to a genuinely multi-group result would require re-researching first-observed-use dates for every other group's exploits claims, which remains out of scope for this pass.
 
 ### H003 -- A vendor fix existed before KEV listing for most OT-relevant CVEs
 
@@ -99,6 +101,7 @@ a curated dataset, not a good analyst.
 *Real result:* `n_tools_compared=17, n_tools_shared_across_groups=0, n_uses_edges=17`
 
 *Telemetry gap:* The corpus's uses edges are hand-curated from each group's own public Dragos threat page, one page per group, cited independently -- there is no cross-source corroboration step that would surface a tool two pages both happen to name. Real data: 17 uses edges across 7-8 groups, zero shared. Reporting that as SUPPORTED would overclaim from a small hand-curated sample: absence of an observed counterexample in 17 edges is not evidence the broader real-world claim holds, especially since well-known public reporting elsewhere (e.g. shared web-shell families like China-Chopper across multiple unrelated Chinese state clusters) directly contradicts strict group-distinctiveness. This is one of the two hunts (with H005) most worth leading with in an interview, per the spec's own framing: "I expected X, the data said not-X" is the strongest signal a hunter can give.
+Post-Week-4 research update: this session specifically searched for a citable overlap between two of this corpus's own 8 tracked groups (not the broader industry claim above, which was never in doubt). Godzilla and China Chopper webshells are indeed broadly documented in public industry reporting as shared tooling across many different Chinese-nexus threat clusters in general. But no source was found tying two of STRATA's own 8 specifically-tracked, individually-cited groups to the same named tool: SYLVANITE's cited tool set (KrustyLoader/WARPWIRE/WIREFIRE/ZIPLINE, per Mandiant/S-0004) and AZURITE's (Chopper/Godzilla/SuperShell, per S-0008) are attributed to genuinely distinct malware families in their respective citations, with no citable overlap between them. This is a real, searched-for-and-not- found result -- not a vague "no data" placeholder -- and it leaves the null hypothesis's "too few/hand-curated to conclude" clause standing: the corpus is simply too small and too narrowly sourced to either confirm or refute cross-group tool sharing among these specific 8 groups.
 
 ### H005 -- Ransomware affecting industrials shows no ICS-native protocol involvement
 
@@ -108,7 +111,7 @@ a curated dataset, not a good analyst.
 
 *Rationale:* Large-impact ransomware incidents against industrial organizations are frequently narrated as "ICS attacks" in press coverage. If the CVEs driving those incidents are IT-side, that framing is misleading for defenders deciding where to invest OT-specific monitoring.
 
-*Real result:* `n_ransomware_cves=357, n_ransomware_cves_with_protocol_involvement=0, overlap_rate=0.0`
+*Real result:* `n_ransomware_cves=360, n_ransomware_cves_with_protocol_involvement=0, overlap_rate=0.0`
 
 *Telemetry gap:* known_ransomware_campaign_use is a KEV-sourced field with only two observed values ("Known"/"Unknown") and no severity/scope detail; a CVE can be flagged "Known" ransomware use while still describing an unrelated component. The involves edge only exists at all where the protocol classifier matched a CVE description keyword (3 edges total, all EtherNet/IP) -- a real but narrow evidentiary base for the "no overlap" side too. Still, with 357 ransomware-flagged CVEs and 0 of them among the 3 protocol-involving CVEs, this is a real, computable, and honestly negative result -- one of the two hunts (with H004) most worth leading with in an interview.
 
@@ -123,6 +126,7 @@ a curated dataset, not a good analyst.
 *Real result:* `n=0, n_cellular_gateway_products_examined=0, qualifying_products=[]`
 
 *Telemetry gap:* Purdue-level classification covers only 86 of 2859 product nodes (config/purdue_map.yaml's hand-curated vendor/product mapping), and the exploits edge set only reaches sylvanite's 5 Ivanti/SAP CVEs -- none of which affect a cellular-gateway-classed product. A real cellular- gateway convergence (e.g. against Sierra Wireless AirLink, which is mapped in purdue_map.yaml) could exist in the world without appearing here, since no group in this corpus has publicly attributed cellular-gateway exploitation. n=0 here reflects sourcing coverage, not a refutation of the underlying convergence hypothesis.
+Post-Week-4 research update: this session specifically re-checked whether a citable CVE link exists for VOLTZITE and cellular gateways. VOLTZITE's own public reporting (Dragos, already cited as S-0002 -- reconfirmed via live web search this session against more recent 2026 reporting) does describe compromising Sierra Wireless AirLink RV50/RV55 cellular gateways specifically -- the qualitative pattern (VOLTZITE + cellular gateways) is real. However, the one CVE publicly associated with that hardware, CVE-2018-4063 (added to CISA's KEV catalog in December 2025), is explicitly attributed by researchers (Forescout, and a report naming the activity cluster "Chaya_005") to an unrelated, unattributed cluster -- NOT to VOLTZITE. Adding CVE-2018-4063 as a VOLTZITE exploit in this corpus would be a fabricated/unsupported attribution, which this project's entire provenance model exists to prevent. Net: the qualitative pattern is real per public reporting, but no specific CVE can be honestly attributed to VOLTZITE for it, so this hunt correctly remains INSUFFICIENT rather than being force-fed a citation that would not hold up.
 
 ### H007 -- Adversary-targeted CVE mass concentrates at Purdue 3.5, not Level 1
 
@@ -144,9 +148,9 @@ a curated dataset, not a good analyst.
 
 *Rationale:* If true, this argues that the growing CVE workload for OT-adjacent defenders is concentrated in edge/IT-boundary products, not in protocol-native ICS vulnerabilities -- a trend-analysis argument for where to grow monitoring capability.
 
-*Real result:* `n_protocol_cves=3, n_edge_cves=43, protocol_cves_by_year={2017: 2, 2026: 1}, edge_cves_by_year={2019: 6, 2021: 6, 2025: 6, 2023: 6, 2020: 7, 2024: 3, 2017: 1, 2026: 3, 2018: 1, 2014: 1, 2022: 1}`
+*Real result:* `n_protocol_cves=3, n_edge_cves=43, protocol_cves_by_year={2026: 1, 2017: 2}, edge_cves_by_year={2023: 6, 2020: 7, 2014: 1, 2025: 6, 2019: 6, 2021: 6, 2026: 3, 2024: 3, 2022: 1, 2018: 1, 2017: 1}`
 
-*Telemetry gap:* The involves edge set has only 3 members total (all EtherNet/IP, from the protocol classifier's real matches against NVD descriptions) -- a 3-point series cannot support a trend claim in either direction, flat or otherwise. This is a direct consequence of the protocol classifier being scoped to CVE description text only (no CSAF product-tree matching, a documented Week 3 gap), not evidence the underlying trend claim is false.
+*Telemetry gap:* n_protocol_cves is still 3 distinct CVEs (all EtherNet/IP) -- a 3-point series cannot support a trend claim in either direction, flat or otherwise. Post-Week-4 update: the protocol classifier now also matches CSAF advisory product-tree text (attrs.csaf_product_text), not just NVD descriptions -- a real code change, not a placeholder. It produced one new, correctly-sourced involves edge (cited to its own CSAF advisory source_id, not NVD's), but that edge happened to land on a CVE (CVE-2026-78012) that already had an NVD-description match, so the distinct-CVE count is unchanged at n=3. This is itself informative: the CSAF collector only ever samples the 25 most-recent advisory files (collect/cisa_csaf.py's N_ADVISORIES constant), so only 77 of 1790 vuln nodes carry csaf_product_text at all -- far too small and too recency- biased a CSAF sample to expect it to surface many CVEs the (much larger, ~1775-CVE) NVD description sweep hadn't already caught. Growing n_protocol_cves meaningfully would need either a larger CSAF sample (raising N_ADVISORIES, a real collector-scope change) or broader NVD keyword coverage, not just this classifier extension alone.
 
 ### H009 -- Given a Stage 1 handoff, the graph predicts a bounded Stage 2 capability set
 
@@ -168,9 +172,9 @@ a curated dataset, not a good analyst.
 
 *Rationale:* If patch latency varies materially by vendor, that is directly actionable procurement/risk-acceptance guidance, distinct from the generic "patch faster" advice.
 
-*Real result:* `n_vendors_with_data=0`
+*Real result:* `n_vendors_with_data=2, min_n_per_vendor=1, n_advisories_with_latency=7, siemens_psirt_median_days=111.0, schneider_psirt_median_days=-3, median_latency_diff_days=114.0`
 
-*Telemetry gap:* No vendor-PSIRT collector was ever built (Siemens/Schneider/Hitachi/ Cisco/Palo Alto/Fortinet/Ivanti were all deliberately deferred every week, see SOURCES.md) -- no per-vendor disclosure-date data exists anywhere in the schema to compare latency across vendors. The patch_available_at_kev metric (H003) is a proxy for "an advisory or NVD record existed before KEV listing", not a per-vendor patch-release date, and cannot substitute for this hunt's actual question.
+*Telemetry gap:* Only 2 of the spec's 7 named vendor PSIRTs are collected (siemens-psirt, schneider-psirt) -- Hitachi, Cisco, Palo Alto, Fortinet, and Ivanti PSIRT collectors were never built (deliberately deferred every prior week; see SOURCES.md), so this comparison is currently 2-vendor only, not the full cross-vendor picture the hypothesis ultimately wants. Live collection (this session) found only 6 Siemens and 1 Schneider advisory with a computable latency point (out of 30 fetched per vendor) -- most fetched advisories are for very recent CVEs that NVD/KEV haven't yet published a date for, so both the per-vendor and per-vendor-pair sample sizes are currently too small to trust a cross-vendor comparison (the >=3-per-vendor floor above is what keeps this hunt from overclaiming on that thin a sample). The patch_available_at_kev metric (H003) remains a different proxy ("an advisory or NVD record existed before KEV listing"), not a per-vendor patch-release date, and is not reused here. The latency figure itself is also an imperfect proxy: it measures (vendor advisory date) minus (CVE's own first public NVD/KEV date), not a true "vulnerability reported to vendor" -> "fix shipped" interval, since neither of those two true endpoints is directly observable from public CSAF/NVD/KEV data alone.
 
 
 ---
@@ -231,9 +235,9 @@ true interval, never an exact measurement -- see H003's own
 The protocol classifier's 200-CVE hand-labeled validation set measured precision = recall = 1.000, but on **n=3 true positives** out of 3 candidates reviewed (the corpus's real base rate of protocol-specific CVEs is 3 of 1,790 known CVEs). A perfect score on 3 positives is not the same statistical claim as a perfect score on 300 -- it says the classifier made no visible mistake on the cases it had, not that it generalizes with high confidence. All 3 classifier-flagged candidates held up under independent reading as genuine EtherNet/IP (CIP) implementation vulnerabilities -- no false positives found among the flagged set. Across all 197 candidate-negative items, careful reading found no genuine recall gap: no description referenced Modbus, S7comm, IEC-104, DNP3, IEC-61850, EtherNet/IP, OPC-UA, BACnet, or MQTT under a synonym or vendor-specific phrasing the keyword list misses. A few items brushed near ICS/OT territory (e.g. CVE-2026-81861 mentions 'RTU functionality' generically, CVE-2026-12661 concerns Rockwell FactoryTalk Historian, CVE-2016-4523 concerns Trihedral VTScada SCADA software) but none of these descriptions actually name or describe an implementation of one of the 9 tracked protocols -- they describe web-interface, credential, or generic-DoS flaws in ICS-adjacent products, so labeling them positive would be unsupported inference rather than ground truth. The overwhelming majority of the 197 negatives are generic enterprise/OS/browser/CMS CVEs (Windows, Chrome, Adobe, Oracle, Cisco IOS/ASA web and VPN features, Java, iOS, etc.) with no plausible protocol linkage at all. This corroborates the corpus's very low true base rate (3/1790 known CVEs trigger any keyword match) -- the classifier's near-total silence on this corpus appears to reflect the actual rarity of protocol-specific CVEs in a KEV/CSAF-sourced, largely non-ICS dataset rather than a recall failure, though the sample size (197) cannot rule out rarer misses elsewhere in the full corpus.
 Several hunts (H002, H004, H006, H008) rest on single-digit or low-double-digit sample sizes for the same underlying reason: the corpus is 8 hand-curated groups whose public sourcing rarely names specific CVEs or tools.
 
-**Deliberately deferred data (not silently dropped).** Vendor-PSIRT collection, CSAF product-tree matching, and group first-seen-use dates were all scoped out of Weeks 1-3 (see section 2 above) -- they are the direct cause of the 5 INSUFFICIENT verdicts below (H002, H004, H006, H008, H010), which should be read as "this pipeline cannot yet answer this question," not as "the answer is no."
+**Deliberately deferred data (not silently dropped).** Vendor-PSIRT collection, CSAF product-tree matching, and group first-seen-use dates were all scoped out of Weeks 1-3 (see section 2 above) -- they are the direct cause of the 4 INSUFFICIENT verdicts below (H004, H006, H008, H010), which should be read as "this pipeline cannot yet answer this question," not as "the answer is no."
 
-**Net verdict mix, for context:** 4 SUPPORTED (H003, H005, H007, H009), 1 REFUTED (H001), 5 INSUFFICIENT (H002, H004, H006, H008, H010). A mixed board, not an all-green one, is the intended and honestly-reported outcome of this pass.
+**Net verdict mix, for context:** 5 SUPPORTED (H002, H003, H005, H007, H009), 1 REFUTED (H001), 4 INSUFFICIENT (H004, H006, H008, H010). A mixed board, not an all-green one, is the intended and honestly-reported outcome of this pass.
 
 ---
 
@@ -257,8 +261,8 @@ Several hunts (H002, H004, H006, H008) rest on single-digit or low-double-digit 
 **Collector/loader sources, with latest retrieval date:**
 
 - `attack` -- 2026-09-17T15:04:31.207810+00:00
-- `cisa-csaf` -- 2026-09-17T15:04:30.861843+00:00
-- `cisa-kev` -- 2026-09-17T15:04:30.735963+00:00
+- `cisa-csaf` -- 2026-09-17T17:18:46.897883+00:00
+- `cisa-kev` -- 2026-09-17T17:18:44.696141+00:00
 - `corpus` -- 2026-09-17
 - `epss` -- 2026-09-17T15:05:16.767365+00:00
 - `exploitdb` -- 2026-09-17T15:05:17.417196+00:00
@@ -266,3 +270,5 @@ Several hunts (H002, H004, H006, H008) rest on single-digit or low-double-digit 
 - `nuclei` -- 2026-09-17T15:05:22.001574+00:00
 - `nvd` -- 2026-09-17T15:05:14.362168+00:00
 - `poc-github` -- 2026-09-17T15:05:17.174093+00:00
+- `schneider-psirt` -- 2026-09-17T17:21:09.352466+00:00
+- `siemens-psirt` -- 2026-09-17T17:20:31.849599+00:00

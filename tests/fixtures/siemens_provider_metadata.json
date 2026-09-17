@@ -1,0 +1,23 @@
+{
+  "canonical_url": "https://cert-portal.siemens.com/productcert/csaf/provider-metadata.json",
+  "distributions": [
+    {
+      "rolie": {
+        "feeds": [
+          {
+            "summary": "All TLP:WHITE advisories of Siemens AG.",
+            "tlp_label": "WHITE",
+            "url": "https://cert-portal.siemens.com/productcert/csaf/ssa-feed-tlp-white.json"
+          }
+        ]
+      }
+    }
+  ],
+  "publisher": {
+    "name": "Siemens ProductCERT",
+    "contact_details": "productcert@siemens.com",
+    "category": "vendor",
+    "namespace": "https://www.siemens.com"
+  },
+  "role": "csaf_trusted_provider"
+}

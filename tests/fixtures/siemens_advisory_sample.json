@@ -1,0 +1,26 @@
+{
+  "document": {
+    "category": "csaf_security_advisory",
+    "csaf_version": "2.0",
+    "publisher": {
+      "category": "vendor",
+      "contact_details": "productcert@siemens.com",
+      "name": "Siemens ProductCERT",
+      "namespace": "https://www.siemens.com"
+    },
+    "title": "Denial of Service Vulnerability in WTV676 and WTV776 devices",
+    "tracking": {
+      "current_release_date": "2026-09-16T00:00:00.000Z",
+      "id": "SSA-823812",
+      "initial_release_date": "2026-09-16T00:00:00.000Z",
+      "status": "interim",
+      "version": "1"
+    }
+  },
+  "vulnerabilities": [
+    {
+      "cve": "CVE-2026-89207",
+      "product_status": { "known_affected": ["CSAFPID-0001"] }
+    }
+  ]
+}

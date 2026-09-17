@@ -1,0 +1,15 @@
+{
+  "canonical_url": "https://www.se.com/.well-known/csaf/provider-metadata.json",
+  "distributions": [
+    {
+      "directory_url": "https://www.se.com/.well-known/csaf/"
+    }
+  ],
+  "publisher": {
+    "category": "vendor",
+    "name": "Schneider Electric CPCERT",
+    "contact_details": "cpcert@se.com",
+    "namespace": "https://www.se.com/ww/en"
+  },
+  "role": "csaf_trusted_provider"
+}

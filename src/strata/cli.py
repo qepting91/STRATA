@@ -26,6 +26,8 @@ from strata.collect.metasploit import MetasploitCollector
 from strata.collect.nuclei import NucleiCollector
 from strata.collect.nvd import NVDCollector
 from strata.collect.poc_github import PoCGitHubCollector
+from strata.collect.schneider_psirt import SchneiderPSIRTCollector
+from strata.collect.siemens_psirt import SiemensPSIRTCollector
 from strata.enrich import consensus as enrich_consensus
 from strata.enrich import protocol as enrich_protocol
 from strata.enrich import purdue as enrich_purdue
@@ -57,6 +59,8 @@ class SourceChoice(StrEnum):
     exploitdb = "exploitdb"
     nuclei = "nuclei"
     metasploit = "metasploit"
+    siemens_psirt = "siemens-psirt"
+    schneider_psirt = "schneider-psirt"
     all = "all"
 
 
@@ -78,6 +82,8 @@ _COLLECTOR_REGISTRY: dict[str, Callable[[net.NetClient, Settings], Collector]] =
     SourceChoice.exploitdb: lambda nc, settings: ExploitDBCollector(nc),
     SourceChoice.nuclei: lambda nc, settings: NucleiCollector(nc),
     SourceChoice.metasploit: lambda nc, settings: MetasploitCollector(nc),
+    SourceChoice.siemens_psirt: lambda nc, settings: SiemensPSIRTCollector(nc),
+    SourceChoice.schneider_psirt: lambda nc, settings: SchneiderPSIRTCollector(nc),
 }
 
 # Stable execution order for `--source all`: cheap/foundational sources
@@ -87,6 +93,8 @@ _COLLECTOR_REGISTRY: dict[str, Callable[[net.NetClient, Settings], Collector]] =
 _ALL_ORDER = [
     SourceChoice.kev,
     SourceChoice.csaf,
+    SourceChoice.siemens_psirt,
+    SourceChoice.schneider_psirt,
     SourceChoice.attack,
     SourceChoice.nvd,
     SourceChoice.epss,

@@ -32,12 +32,21 @@ class Targets(BaseModel):
 
 
 class Exploit(BaseModel):
-    """A CVE a group is documented to have exploited."""
+    """A CVE a group is documented to have exploited.
+
+    ``first_seen`` is an optional ISO-8601 date string for the earliest
+    publicly documented date this group was observed exploiting the CVE
+    (distinct from the CVE's own disclosure date). When present,
+    ``normalize/corpus.py`` stores it in the ``exploits`` edge's ``note``
+    column, which ``enrich/timeline.py`` reads back to compute
+    ``disclosure_to_group_use``.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     cve: str
     product: str | None = None
+    first_seen: str | None = None
     src: str
 
 

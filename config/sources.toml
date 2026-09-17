@@ -48,3 +48,14 @@ window_seconds = 1.0
 [hosts."gitlab.com"]
 max_requests = 1
 window_seconds = 1.0
+
+# Week "post-Week-4" H010 addition: Siemens ProductCERT and Schneider
+# Electric CPCERT CSAF PSIRT feeds. Same conservative 1 req/sec courtesy
+# default as every other Week 1/2 host above.
+[hosts."cert-portal.siemens.com"]
+max_requests = 1
+window_seconds = 1.0
+
+[hosts."www.se.com"]
+max_requests = 1
+window_seconds = 1.0

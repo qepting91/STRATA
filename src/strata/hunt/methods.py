@@ -1,9 +1,12 @@
-"""The 5 python-method hunts custom logic (H002, H004, H005, H006, H008)."""
+"""The python-method hunts custom logic (H002, H004, H005, H006, H008, H010)."""
 
 from __future__ import annotations
 
 import json
 import statistics
+from datetime import date
+
+from strata.model import store
 
 
 def h002_poc_to_group_use(conn) -> dict:
@@ -201,10 +204,116 @@ def h008_protocol_vs_edge_cve_trend(conn) -> dict:
     }
 
 
+_H010_VENDOR_SOURCE_NAMES = ["siemens-psirt", "schneider-psirt"]
+
+
+def _parse_date_prefix(value: str | None) -> date | None:
+    """Parse the leading YYYY-MM-DD of an ISO-8601-ish date/datetime string."""
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def h010_vendor_patch_latency(conn) -> dict:
+    """H010: per-vendor patch latency, vendor advisory date vs. earliest CVE disclosure.
+
+    "Patch latency" here is modeled as: for each vendor advisory, the
+    number of days between the vendor's own ``initial_release_date`` (the
+    real per-vendor disclosure/fix-availability date the PSIRT collectors
+    capture) and that advisory's earliest-linked CVE's own first known
+    public disclosure -- ``min(nvd_published, kev date_added)`` over
+    whichever of those two fields is present on the CVE's vuln node attrs.
+    A positive value means the vendor's advisory (which bundles the fix)
+    lagged the CVE's first public appearance; this is the closest
+    real, computable proxy available in this graph for "time to patch
+    availability" -- there is no dedicated "vendor fix release date" field
+    independent of the advisory's own publish date.
+
+    Only vendors with at least one computable latency point are counted
+    in ``n_vendors_with_data`` -- currently ``siemens-psirt`` and
+    ``schneider-psirt`` (the only two vendor PSIRT collectors built so
+    far; see this hunt's ``telemetry_gap`` for the other 5 still missing).
+    """
+    advisory_rows = store.get_advisory_cve_dates_by_vendor(conn, _H010_VENDOR_SOURCE_NAMES)
+
+    vuln_attrs_by_cve = {
+        v["id"]: (v["attrs"] or {}) for v in store.get_all_vuln_nodes(conn)
+    }
+
+    # Group by (vendor, advisory_id) so a multi-CVE advisory contributes
+    # exactly one latency point, keyed on its earliest-linked CVE.
+    by_advisory: dict[tuple[str, str], dict] = {}
+    for row in advisory_rows:
+        key = (row["vendor"], row["advisory_id"])
+        entry = by_advisory.setdefault(
+            key,
+            {
+                "vendor": row["vendor"],
+                "advisory_date": _parse_date_prefix(row["initial_release_date"]),
+                "earliest_cve_date": None,
+            },
+        )
+        attrs = vuln_attrs_by_cve.get(row["cve_id"], {})
+        candidate_dates = [
+            d
+            for d in (
+                _parse_date_prefix(attrs.get("nvd_published")),
+                _parse_date_prefix(attrs.get("date_added")),
+            )
+            if d is not None
+        ]
+        if not candidate_dates:
+            continue
+        cve_date = min(candidate_dates)
+        if entry["earliest_cve_date"] is None or cve_date < entry["earliest_cve_date"]:
+            entry["earliest_cve_date"] = cve_date
+
+    latency_by_vendor: dict[str, list[int]] = {v: [] for v in _H010_VENDOR_SOURCE_NAMES}
+    for entry in by_advisory.values():
+        if entry["advisory_date"] is None or entry["earliest_cve_date"] is None:
+            continue
+        latency_days = (entry["advisory_date"] - entry["earliest_cve_date"]).days
+        latency_by_vendor.setdefault(entry["vendor"], []).append(latency_days)
+
+    medians: dict[str, float | None] = {
+        vendor: (statistics.median(values) if values else None)
+        for vendor, values in latency_by_vendor.items()
+    }
+    n_vendors_with_data = sum(1 for values in latency_by_vendor.values() if values)
+    # The weakest vendor's sample size, not just "did it have >=1 point":
+    # a median over n=1 is a single anecdote, not a vendor latency figure.
+    # Vendors with zero data points don't count toward this floor (that
+    # case is already covered by n_vendors_with_data/insufficient_if).
+    nonzero_counts = [len(values) for values in latency_by_vendor.values() if values]
+    min_n_per_vendor = min(nonzero_counts) if nonzero_counts else 0
+
+    median_latency_diff_days = None
+    if n_vendors_with_data == len(_H010_VENDOR_SOURCE_NAMES):
+        vendor_medians = [m for m in medians.values() if m is not None]
+        median_latency_diff_days = abs(vendor_medians[0] - vendor_medians[1])
+
+    return {
+        "n_vendors_with_data": n_vendors_with_data,
+        "min_n_per_vendor": min_n_per_vendor,
+        "n_advisories_with_latency": sum(len(v) for v in latency_by_vendor.values()),
+        "siemens_psirt_median_days": medians.get("siemens-psirt"),
+        "schneider_psirt_median_days": medians.get("schneider-psirt"),
+        "median_latency_diff_days": median_latency_diff_days,
+        "rows": [
+            {"vendor": vendor, "n": len(values), "median_days": medians[vendor]}
+            for vendor, values in latency_by_vendor.items()
+        ],
+    }
+
+
 METHODS = {
     "h002_poc_to_group_use": h002_poc_to_group_use,
     "h004_webshell_distinctiveness": h004_webshell_distinctiveness,
     "h005_ransomware_protocol_overlap": h005_ransomware_protocol_overlap,
     "h006_cellular_gateway_convergence": h006_cellular_gateway_convergence,
     "h008_protocol_vs_edge_cve_trend": h008_protocol_vs_edge_cve_trend,
+    "h010_vendor_patch_latency": h010_vendor_patch_latency,
 }

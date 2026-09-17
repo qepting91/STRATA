@@ -5,11 +5,15 @@ CVE description string and a list of ProtocolRule objects loaded from
 config/protocols.yaml. run() wires that over every vuln node description
 and writes vuln -[:involves]-> protocol edges.
 
-Scope note: applied only to CVE descriptions (NVD attrs.description, added
-in collect/nvd.py this same week). The spec other stated input (CSAF
-product trees) is out of scope this week -- the CSAF collector does not
-currently extract product-tree text at all, and adding that is a
-collector-level change, not an enrichment one. Documented as a known gap.
+Applied over both of spec section 6.2's stated inputs: CVE descriptions
+(NVD attrs.description, cited to nvd-<cve>) and CSAF advisory product-tree
+text (attrs.csaf_product_text, added to collect/cisa_csaf.py post-Week-4,
+cited to that advisory's own source row -- resolved via the describes
+edge, not NVD's). A CVE can match via either, both, or neither text
+source; matches from each are written as independent involves edges with
+their own correct source_id, never deduped across sources, since each is
+an independently-cited claim (a CVE with both a description match and a
+CSAF-text match for the same protocol legitimately gets two edges).
 
 Evidence composition rule: primary evidence is a keyword match
 (keyword:<kw>). Two corroborating (never sufficient alone) signals may be
@@ -170,10 +174,11 @@ def run(
             nvd-{cve} source row per CVE it enriches).
 
     Returns:
-        Summary dict: vulns examined, vulns with a description, edges
-        written, distinct protocols matched, and vulns skipped for lacking
-        a matching source row (a real data-inconsistency signal worth
-        surfacing rather than silently swallowing).
+        Summary dict: vulns examined, vulns with a description, vulns with
+        CSAF product-tree text, edges written, distinct protocols matched,
+        and vulns skipped for lacking a matching source row (a real
+        data-inconsistency signal worth surfacing rather than silently
+        swallowing).
     """
     rules = load_protocol_rules(rules_path)
     fetched_at = datetime.now(UTC).isoformat()
@@ -186,35 +191,30 @@ def run(
 
     vulns = store.get_all_vuln_nodes(conn)
     vulns_with_description = 0
+    vulns_with_csaf_product_text = 0
     edges_written = 0
     protocols_matched: set[str] = set()
     missing_source_skips = 0
 
-    for vuln in vulns:
-        attrs = vuln.get("attrs") or {}
-        description = attrs.get("description")
-        if not description:
-            continue
-        vulns_with_description += 1
-
-        cve = vuln["id"]
-        matches = classify(description, rules)
+    def _write_matches(
+        *, cve: str, matches: list[ClassificationResult], source_id: str | None,
+        source_kind: str,
+    ) -> None:
+        nonlocal edges_written, missing_source_skips
         if not matches:
-            continue
-
-        source_id = f"{source_prefix}{cve}"
-        if not store.source_exists(conn, source_id):
+            return
+        if source_id is None or not store.source_exists(conn, source_id):
             logger.warning(
-                "protocol classifier: vuln %s has a description but no "
-                "matching source row %r; skipping involves edge(s) for it "
-                "(data inconsistency -- description should always come "
-                "with its own source row)",
+                "protocol classifier: vuln %s has %s text but no matching "
+                "source row %r; skipping involves edge(s) for it (data "
+                "inconsistency -- text should always come with its own "
+                "source row)",
                 cve,
+                source_kind,
                 source_id,
             )
             missing_source_skips += 1
-            continue
-
+            return
         for match in matches:
             protocol_id = _protocol_id(match.protocol_name)
             store.insert_node(
@@ -227,19 +227,44 @@ def run(
             )
             store.insert_edge(
                 conn,
-                id=f"{cve}--involves--{protocol_id}",
+                id=f"{cve}--involves--{protocol_id}--{source_kind}",
                 src_id=cve,
                 dst_id=protocol_id,
                 type="involves",
                 source_id=source_id,
-                note=match.evidence,
+                note=f"{match.evidence}+source:{source_kind}",
             )
             edges_written += 1
             protocols_matched.add(match.protocol_name)
 
+    for vuln in vulns:
+        attrs = vuln.get("attrs") or {}
+        description = attrs.get("description")
+        csaf_product_text = attrs.get("csaf_product_text")
+        cve = vuln["id"]
+
+        if description:
+            vulns_with_description += 1
+            _write_matches(
+                cve=cve,
+                matches=classify(description, rules),
+                source_id=f"{source_prefix}{cve}",
+                source_kind="nvd",
+            )
+
+        if csaf_product_text:
+            vulns_with_csaf_product_text += 1
+            _write_matches(
+                cve=cve,
+                matches=classify(csaf_product_text, rules),
+                source_id=store.get_describing_advisory_source_id(conn, cve),
+                source_kind="csaf",
+            )
+
     return {
         "vulns_examined": len(vulns),
         "vulns_with_description": vulns_with_description,
+        "vulns_with_csaf_product_text": vulns_with_csaf_product_text,
         "edges_written": edges_written,
         "protocols_matched": len(protocols_matched),
         "vulns_skipped_missing_source": missing_source_skips,

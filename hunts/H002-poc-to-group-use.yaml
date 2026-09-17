@@ -15,10 +15,17 @@ python_fn: h002_poc_to_group_use
 falsifies_if: "n >= 3 and median_days > 14"
 insufficient_if: "n < 3"
 telemetry_gap: >
-  disclosure_to_group_use was never computed (documented Week 3 scope
-  reduction): the corpus group-entry format has no first_seen date on a
-  group's exploits claims, unlike the spec's own illustrative example.
-  There are zero metric_observation rows for this metric_name at all --
-  computing it for real would require re-researching first-observed-use
-  dates for every corpus exploit claim, which is out of scope for this
-  pass. This is an honest absence, not a small-sample artifact.
+  disclosure_to_group_use is now computed for real (post-Week-4): SYLVANITE's
+  5 corpus exploits entries each carry a real, cited first_seen date
+  (Mandiant/SecurityAffairs, already S-0004/S-0005/S-0006), giving n=5
+  real metric_observation rows. But this coverage is entirely one group --
+  the other 7 groups in the corpus have either no exploits list at all, or
+  (where one exists) no publicly documented first-observed-use date to
+  cite, so SYLVANITE alone clears this hunt's n>=3 bar. A verdict computed
+  from a single group's 5 CVEs (all against 2 product families, Ivanti and
+  SAP, within an ~18-month window) is real data, not a small-sample
+  artifact of missing rows -- but it is also not the cross-group,
+  illustrative comparison the hypothesis as written implies. Extending
+  this to a genuinely multi-group result would require re-researching
+  first-observed-use dates for every other group's exploits claims, which
+  remains out of scope for this pass.

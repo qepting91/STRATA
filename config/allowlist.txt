@@ -4,3 +4,5 @@ raw.githubusercontent.com
 services.nvd.nist.gov
 api.first.org
 gitlab.com
+cert-portal.siemens.com
+www.se.com

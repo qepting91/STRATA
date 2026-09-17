@@ -23,20 +23,35 @@ targets:
   src: S-0001
 
 exploits:
+  # first_seen dates below are each drawn directly from the same
+  # publisher/article already cited for the CVE, not newly researched
+  # citations -- see corpus/citations.yaml S-0004/S-0005/S-0006.
   - cve: CVE-2023-46805
     product: ivanti_connect_secure
+    # Mandiant (S-0004): exploitation observed "as early as December 3, 2023".
+    first_seen: "2023-12-03"
     src: S-0004
   - cve: CVE-2024-21887
     product: ivanti_connect_secure
+    # Mandiant (S-0004): same campaign/date as CVE-2023-46805 above.
+    first_seen: "2023-12-03"
     src: S-0004
   - cve: CVE-2025-4427
     product: ivanti_epmm
+    # SecurityAffairs (S-0005): matches the article's own reporting date
+    # of first observed exploitation.
+    first_seen: "2025-05-15"
     src: S-0005
   - cve: CVE-2025-4428
     product: ivanti_epmm
+    # SecurityAffairs (S-0005): same campaign/date as CVE-2025-4427 above.
+    first_seen: "2025-05-15"
     src: S-0005
   - cve: CVE-2025-31324
     product: sap_netweaver
+    # Mandiant's "first known exploitation" date for this CVE, reported
+    # via the same thehackernews article already cited as S-0006.
+    first_seen: "2025-03-12"
     src: S-0006
 
 tools:

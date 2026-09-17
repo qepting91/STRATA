@@ -158,13 +158,47 @@ whole run. This was hit live during Week 2 development. A future pass
 could add a real rolling-window budget to the rate limiter and/or send an
 authenticated `GITHUB_TOKEN` to raise the cap to 5,000/hour.
 
+## `siemens-psirt` — Siemens ProductCERT CSAF advisories
+
+- **URL:** provider metadata `https://cert-portal.siemens.com/productcert/csaf/provider-metadata.json`
+  → ROLIE feed `https://cert-portal.siemens.com/productcert/csaf/ssa-feed-tlp-white.json`
+  (both verified live via WebFetch before implementation, not guessed).
+- **License / terms:** Siemens's own public TLP:WHITE security advisories,
+  published as real CSAF 2.0 documents. No authentication required.
+- **What it gives you:** per-advisory `initial_release_date` — the first
+  real, per-vendor disclosure date in this graph (KEV/NVD/CISA-CSAF dates
+  are all US-government-aggregated, not vendor-native). Feeds H010
+  (vendor patch latency).
+- **Scope:** bounded to the most recent `N=30` advisories per run
+  (`collect/vendor_csaf.py`'s `N_ADVISORIES`), same tractability rationale
+  as CISA CSAF's own `N=25`.
+
+## `schneider-psirt` — Schneider Electric CPCERT CSAF advisories
+
+- **URL:** provider metadata `https://www.se.com/.well-known/csaf/provider-metadata.json`
+  → `changes.csv`-indexed distribution under `https://www.se.com/.well-known/csaf/`
+  (verified live; this is a real, standard CSAF distribution mechanism —
+  a plain CSV of `path,timestamp` rows — not a ROLIE feed like Siemens's,
+  confirmed by actually fetching it rather than assuming both vendors
+  use the same discovery shape).
+- **License / terms / what it gives you / scope:** same as Siemens above.
+
+**Real, honest result (live collection, this session):** only 6 of 30
+fetched Siemens advisories and 1 of 30 fetched Schneider advisories had a
+CVE with an NVD/KEV date already published (most fetched advisories are
+for very recent 2026 CVEs NVD/KEV haven't caught up on yet) — i.e. a
+computable patch-latency data point. H010's `min_n_per_vendor >= 3` gate
+(in `hunt/methods.py`) correctly keeps the hunt INSUFFICIENT on this thin
+a sample rather than reporting a comparison built on a single Schneider
+data point.
+
 ## Deliberately not collected
 
-Vendor PSIRT feeds (Siemens, Schneider, Hitachi, Cisco, Palo Alto,
-Fortinet, Ivanti) are in scope per the engineering spec but remain
-later-week work. `net.py`'s rate limiter is keyed by hostname and
-configured via `config/sources.toml` specifically so these can be added
-later without reworking the fetch/cache layer.
+5 of the spec's 7 named vendor PSIRT feeds (Hitachi, Cisco, Palo Alto,
+Fortinet, Ivanti) remain uncollected. `net.py`'s rate limiter is keyed by
+hostname and configured via `config/sources.toml` specifically so these
+can be added later without reworking the fetch/cache layer — exactly as
+Siemens and Schneider were.
 
 ## Known corpus gap (Week 2)
 

@@ -30,3 +30,21 @@ telemetry_gap: >
   two hunts (with H005) most worth leading with in an interview, per the
   spec's own framing: "I expected X, the data said not-X" is the
   strongest signal a hunter can give.
+
+  Post-Week-4 research update: this session specifically searched for a
+  citable overlap between two of this corpus's own 8 tracked groups (not
+  the broader industry claim above, which was never in doubt). Godzilla
+  and China Chopper webshells are indeed broadly documented in public
+  industry reporting as shared tooling across many different
+  Chinese-nexus threat clusters in general. But no source was found
+  tying two of STRATA's own 8 specifically-tracked, individually-cited
+  groups to the same named tool: SYLVANITE's cited tool set
+  (KrustyLoader/WARPWIRE/WIREFIRE/ZIPLINE, per Mandiant/S-0004) and
+  AZURITE's (Chopper/Godzilla/SuperShell, per S-0008) are attributed to
+  genuinely distinct malware families in their respective citations, with
+  no citable overlap between them. This is a real, searched-for-and-not-
+  found result -- not a vague "no data" placeholder -- and it leaves the
+  null hypothesis's "too few/hand-curated to conclude" clause standing:
+  the corpus is simply too small and too narrowly sourced to either
+  confirm or refute cross-group tool sharing among these specific 8
+  groups.

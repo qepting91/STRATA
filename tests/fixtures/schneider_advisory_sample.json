@@ -1,0 +1,24 @@
+{
+  "document": {
+    "category": "csaf_security_advisory",
+    "csaf_version": "2.0",
+    "publisher": {
+      "category": "vendor",
+      "contact_details": "cpcert@se.com",
+      "name": "Schneider Electric CPCERT",
+      "namespace": "https://www.se.com/ww/en"
+    },
+    "title": "Multiple Vulnerabilities in EcoStruxure Products",
+    "tracking": {
+      "current_release_date": "2026-09-08T07:00:00.000Z",
+      "id": "SEVD-2026-251-01",
+      "initial_release_date": "2026-09-08T07:00:00.000Z",
+      "status": "final",
+      "version": "1.0.0"
+    }
+  },
+  "vulnerabilities": [
+    { "cve": "CVE-2026-19233", "product_status": { "known_affected": ["CSAFPID-0001"] } },
+    { "cve": "CVE-2026-8044", "product_status": { "known_affected": ["CSAFPID-0001"] } }
+  ]
+}

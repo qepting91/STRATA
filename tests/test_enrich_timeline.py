@@ -213,6 +213,104 @@ def test_missing_data_means_no_metric_computed(db_conn) -> None:
     assert summary["cves_with_disclosure"] >= 1
 
 
+def test_disclosure_to_group_use_computed_from_exploits_edge_note(db_conn) -> None:
+    """An exploits edge with a first_seen note yields disclosure_to_group_use,
+    cited to the exploits edge's own source_id."""
+    _insert_source(db_conn, "nvd-CVE-2024-0011")
+    _insert_source(db_conn, "s-group-claim")
+    store.insert_node(
+        db_conn, id="CVE-2024-0011", type="vuln", label="CVE-2024-0011",
+        attrs=json.dumps({"nvd_published": "2024-01-01"}),
+        created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_node(
+        db_conn, id="test-group", type="group", label="TEST-GROUP",
+        attrs=None, created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_edge(
+        db_conn, id="test-group--exploits--CVE-2024-0011",
+        src_id="test-group", dst_id="CVE-2024-0011",
+        type="exploits", source_id="s-group-claim", note="2024-01-21",
+    )
+
+    timeline.run(db_conn)
+
+    row = db_conn.execute(
+        "SELECT value, source_id FROM metric_observation WHERE id = ?",
+        ("CVE-2024-0011--disclosure_to_group_use",),
+    ).fetchone()
+    assert row is not None
+    assert row["value"] == 20.0
+    assert row["source_id"] == "s-group-claim"
+
+
+def test_disclosure_to_group_use_skipped_without_t_disclosed(db_conn) -> None:
+    """A first_seen note on a CVE with no computable t_disclosed must not
+    produce a metric row (nothing to compute against), and must not error."""
+    _insert_source(db_conn, "s-group-claim-2")
+    store.insert_node(
+        db_conn, id="CVE-2024-0012", type="vuln", label="CVE-2024-0012",
+        attrs=None, created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_node(
+        db_conn, id="test-group-2", type="group", label="TEST-GROUP-2",
+        attrs=None, created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_edge(
+        db_conn, id="test-group-2--exploits--CVE-2024-0012",
+        src_id="test-group-2", dst_id="CVE-2024-0012",
+        type="exploits", source_id="s-group-claim-2", note="2024-01-21",
+    )
+    timeline.run(db_conn)
+    row = db_conn.execute(
+        "SELECT value FROM metric_observation WHERE id = ?",
+        ("CVE-2024-0012--disclosure_to_group_use",),
+    ).fetchone()
+    assert row is None
+
+
+def test_disclosure_to_group_use_is_stale_cleared_on_rerun(db_conn) -> None:
+    """Regression test mirroring the disclosure_to_poc_days staleness test:
+    disclosure_to_group_use must be in the derived-metric clear list, so a
+    row whose underlying exploits edge note is removed does not survive a
+    rerun."""
+    _insert_source(db_conn, "nvd-CVE-2024-0013")
+    _insert_source(db_conn, "s-group-claim-3")
+    store.insert_node(
+        db_conn, id="CVE-2024-0013", type="vuln", label="CVE-2024-0013",
+        attrs=json.dumps({"nvd_published": "2024-01-01"}),
+        created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_node(
+        db_conn, id="test-group-3", type="group", label="TEST-GROUP-3",
+        attrs=None, created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_edge(
+        db_conn, id="test-group-3--exploits--CVE-2024-0013",
+        src_id="test-group-3", dst_id="CVE-2024-0013",
+        type="exploits", source_id="s-group-claim-3", note="2024-01-21",
+    )
+    timeline.run(db_conn)
+    row = db_conn.execute(
+        "SELECT value FROM metric_observation WHERE id = ?",
+        ("CVE-2024-0013--disclosure_to_group_use",),
+    ).fetchone()
+    assert row is not None and row["value"] == 20.0
+
+    db_conn.execute(
+        "UPDATE edge SET note = NULL WHERE id = "
+        "'test-group-3--exploits--CVE-2024-0013'"
+    )
+    db_conn.commit()
+
+    timeline.run(db_conn)
+    row_after = db_conn.execute(
+        "SELECT value FROM metric_observation WHERE id = ?",
+        ("CVE-2024-0013--disclosure_to_group_use",),
+    ).fetchone()
+    assert row_after is None
+
+
 def test_patch_available_at_kev_true_and_false(db_conn) -> None:
     _insert_source(db_conn, "nvd-CVE-2024-0008")
     _insert_source(db_conn, "nvd-CVE-2024-0009")

@@ -34,13 +34,13 @@ def test_load_corpus_normal_group_lands_nodes_and_edges(
     assert node_counts.get("group") == 3  # alpha, beta, unknown_group (stub)
     assert node_counts.get("sector", 0) >= 1
     assert node_counts.get("geo", 0) >= 1
-    assert node_counts.get("vuln", 0) == 1
+    assert node_counts.get("vuln", 0) == 2
     assert node_counts.get("tool", 0) == 1
     assert node_counts.get("technique", 0) == 1
 
     edge_counts = store.count_edges_by_type(conn)
     assert edge_counts.get("hands_off_to") == 2
-    assert edge_counts.get("exploits") == 1
+    assert edge_counts.get("exploits") == 2
     assert edge_counts.get("uses") == 1
     assert edge_counts.get("implements") == 1
 
@@ -59,6 +59,29 @@ def test_load_corpus_normal_group_lands_nodes_and_edges(
     ).fetchone()
     assert stub_row["label"] == "unknown_group"
     assert stub_row["attrs"] is None
+
+    conn.close()
+
+
+def test_exploits_edge_note_carries_first_seen_when_present(
+    tmp_path: Path, fixtures_dir: Path
+) -> None:
+    """An Exploit entry with first_seen produces an edge whose note is that
+    date string; one without first_seen produces note=None."""
+    conn = store.get_connection(tmp_path / "strata.db")
+    load_corpus(conn, corpus_dir=fixtures_dir / "corpus")
+
+    with_note = conn.execute(
+        "SELECT note FROM edge WHERE id = ?",
+        ("alpha--exploits--CVE-2024-0001",),
+    ).fetchone()
+    assert with_note["note"] == "2024-01-15"
+
+    without_note = conn.execute(
+        "SELECT note FROM edge WHERE id = ?",
+        ("alpha--exploits--CVE-2024-0002",),
+    ).fetchone()
+    assert without_note["note"] is None
 
     conn.close()
 

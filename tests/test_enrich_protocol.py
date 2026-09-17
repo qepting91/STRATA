@@ -134,6 +134,104 @@ def test_run_writes_involves_edges_with_evidence_note(db_conn) -> None:
     assert "keyword:modbus" in row["note"]
 
 
+def test_run_matches_csaf_product_text_with_correct_advisory_source_id(db_conn) -> None:
+    """A CVE with no NVD description match but a CSAF product-tree text
+    match must still produce a correctly-sourced involves edge citing the
+    CSAF advisory's own source_id, not a nonexistent nvd-<cve> one."""
+    fetched_at = "2026-01-01T00:00:00Z"
+    store.insert_source(
+        db_conn, id="cisa-csaf-ICSA-26-100-01", name="cisa-csaf", url=None,
+        fetched_at=fetched_at,
+    )
+    store.insert_node(
+        db_conn, id="ICSA-26-100-01", type="advisory", label="Test Advisory",
+        attrs=json.dumps({"initial_release_date": "2026-01-01"}),
+        created_at=fetched_at,
+    )
+    store.insert_node(
+        db_conn,
+        id="CVE-2024-7777",
+        type="vuln",
+        label="CVE-2024-7777",
+        attrs=json.dumps(
+            {"csaf_product_text": "Acme Modbus TCP Gateway v3 firmware"}
+        ),
+        created_at=fetched_at,
+    )
+    store.insert_edge(
+        db_conn, id="ICSA-26-100-01--describes--CVE-2024-7777",
+        src_id="ICSA-26-100-01", dst_id="CVE-2024-7777",
+        type="describes", source_id="cisa-csaf-ICSA-26-100-01",
+    )
+
+    summary = protocol.run(db_conn)
+
+    assert summary["vulns_with_description"] == 0
+    assert summary["vulns_with_csaf_product_text"] == 1
+    assert summary["edges_written"] == 1
+    assert summary["vulns_skipped_missing_source"] == 0
+
+    row = db_conn.execute(
+        "SELECT note, type, source_id FROM edge WHERE src_id = ? AND dst_id = ?",
+        ("CVE-2024-7777", "protocol-modbus"),
+    ).fetchone()
+    assert row["type"] == "involves"
+    assert row["source_id"] == "cisa-csaf-ICSA-26-100-01"
+    assert "keyword:modbus" in row["note"]
+    assert "+source:csaf" in row["note"]
+
+    # No dangling nvd-<cve> source row was ever created or cited.
+    assert not store.source_exists(db_conn, "nvd-CVE-2024-7777")
+
+
+def test_run_writes_both_nvd_and_csaf_edges_when_both_match(db_conn) -> None:
+    """A CVE with matches from both text sources gets two independent
+    involves edges, each with its own correct source_id -- not deduped."""
+    fetched_at = "2026-01-01T00:00:00Z"
+    store.insert_source(
+        db_conn, id="nvd-CVE-2024-8888", name="nvd", url=None, fetched_at=fetched_at,
+    )
+    store.insert_source(
+        db_conn, id="cisa-csaf-ICSA-26-200-01", name="cisa-csaf", url=None,
+        fetched_at=fetched_at,
+    )
+    store.insert_node(
+        db_conn, id="ICSA-26-200-01", type="advisory", label="Test Advisory 2",
+        attrs=json.dumps({"initial_release_date": "2026-01-01"}),
+        created_at=fetched_at,
+    )
+    store.insert_node(
+        db_conn,
+        id="CVE-2024-8888",
+        type="vuln",
+        label="CVE-2024-8888",
+        attrs=json.dumps(
+            {
+                "description": "A flaw in the Modbus function code handler.",
+                "csaf_product_text": "Acme Modbus TCP Gateway v3 firmware",
+            }
+        ),
+        created_at=fetched_at,
+    )
+    store.insert_edge(
+        db_conn, id="ICSA-26-200-01--describes--CVE-2024-8888",
+        src_id="ICSA-26-200-01", dst_id="CVE-2024-8888",
+        type="describes", source_id="cisa-csaf-ICSA-26-200-01",
+    )
+
+    summary = protocol.run(db_conn)
+    assert summary["edges_written"] == 2
+
+    rows = db_conn.execute(
+        "SELECT note, source_id FROM edge WHERE src_id = ? AND dst_id = ? "
+        "ORDER BY source_id",
+        ("CVE-2024-8888", "protocol-modbus"),
+    ).fetchall()
+    assert len(rows) == 2
+    source_ids = {row["source_id"] for row in rows}
+    assert source_ids == {"nvd-CVE-2024-8888", "cisa-csaf-ICSA-26-200-01"}
+
+
 def test_run_skips_when_no_matching_source_row(db_conn) -> None:
     """A vuln with a description but no nvd-<cve> source row is a real
     data inconsistency -- classifier must skip it (not crash, not insert

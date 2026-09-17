@@ -26,3 +26,21 @@ telemetry_gap: >
   here, since no group in this corpus has publicly attributed
   cellular-gateway exploitation. n=0 here reflects sourcing coverage, not
   a refutation of the underlying convergence hypothesis.
+
+  Post-Week-4 research update: this session specifically re-checked
+  whether a citable CVE link exists for VOLTZITE and cellular gateways.
+  VOLTZITE's own public reporting (Dragos, already cited as S-0002 --
+  reconfirmed via live web search this session against more recent 2026
+  reporting) does describe compromising Sierra Wireless AirLink RV50/RV55
+  cellular gateways specifically -- the qualitative pattern (VOLTZITE +
+  cellular gateways) is real. However, the one CVE publicly associated
+  with that hardware, CVE-2018-4063 (added to CISA's KEV catalog in
+  December 2025), is explicitly attributed by researchers (Forescout, and
+  a report naming the activity cluster "Chaya_005") to an unrelated,
+  unattributed cluster -- NOT to VOLTZITE. Adding CVE-2018-4063 as a
+  VOLTZITE exploit in this corpus would be a fabricated/unsupported
+  attribution, which this project's entire provenance model exists to
+  prevent. Net: the qualitative pattern is real per public reporting, but
+  no specific CVE can be honestly attributed to VOLTZITE for it, so this
+  hunt correctly remains INSUFFICIENT rather than being force-fed a
+  citation that would not hold up.
