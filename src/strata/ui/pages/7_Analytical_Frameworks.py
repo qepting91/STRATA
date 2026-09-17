@@ -197,8 +197,5 @@ st.markdown(
     "(Dragos, Feb 2026) -- grounds the AZURITE/PYROXENE stage "
     "corrections, the Godzilla/frp cross-group tool citations, and the "
     "Now/Next/Never vulnerability-triage cross-reference above. Cited "
-    "by name only; not served as a downloadable file.\n"
-    "- **`docs/demo.md`** -- this project's own 90-second demo script.\n"
-    "- **`docs/storm-queries.md`** -- example Storm queries against this "
-    "project's `.storm` export, for a Cortex-style analyst workflow."
+    "by name only; not served as a downloadable file."
 )
