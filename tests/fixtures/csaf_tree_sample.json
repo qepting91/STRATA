@@ -1,0 +1,62 @@
+{
+  "sha": "abc123",
+  "url": "https://api.github.com/repos/cisagov/CSAF/git/trees/abc123",
+  "tree": [
+    {
+      "path": "csaf_files/OT",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "aaa111",
+      "url": "https://api.github.com/repos/cisagov/CSAF/git/trees/aaa111"
+    },
+    {
+      "path": "csaf_files/OT/white/2026/icsa-26-006-01.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-006-01",
+      "size": 1234,
+      "url": "https://api.github.com/repos/cisagov/CSAF/git/blobs/sha-006-01"
+    },
+    {
+      "path": "csaf_files/OT/white/2026/icsa-26-013-01.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-013-01",
+      "size": 2345,
+      "url": "https://api.github.com/repos/cisagov/CSAF/git/blobs/sha-013-01"
+    },
+    {
+      "path": "csaf_files/OT/white/2026/icsa-26-015-02.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-015-02",
+      "size": 3456,
+      "url": "https://api.github.com/repos/cisagov/CSAF/git/blobs/sha-015-02"
+    },
+    {
+      "path": "csaf_files/IT/white/2026/va-26-008-01.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-va-008-01",
+      "size": 1111,
+      "url": "https://api.github.com/repos/cisagov/CSAF/git/blobs/sha-va-008-01"
+    },
+    {
+      "path": "csaf_files/OT/white/2025/icsa-25-300-01.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-25-300-01",
+      "size": 999,
+      "url": "https://api.github.com/repos/cisagov/CSAF/git/blobs/sha-25-300-01"
+    },
+    {
+      "path": "csaf_files/OT/white/2026/README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "sha-readme",
+      "size": 42,
+      "url": "https://api.github.com/repos/cisagov/CSAF/git/blobs/sha-readme"
+    }
+  ],
+  "truncated": false
+}

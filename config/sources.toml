@@ -1,0 +1,24 @@
+# Per-host rate limits for the egress-guarded client in src/strata/net.py.
+# Keyed by hostname (not by logical source name) so any collector hitting
+# the same host shares the same budget. This makes the limiter
+# source-agnostic: adding NVD (services.nvd.nist.gov) later just means
+# adding a new [hosts."..."] table here, with no changes to net.py.
+#
+# Conservative defaults for the three Week 1 hosts: 1 request/second.
+
+[hosts."www.cisa.gov"]
+max_requests = 1
+window_seconds = 1.0
+
+[hosts."api.github.com"]
+max_requests = 1
+window_seconds = 1.0
+
+[hosts."raw.githubusercontent.com"]
+max_requests = 1
+window_seconds = 1.0
+
+# Reserved for Week 2 (NVD collector). Not used this week.
+# [hosts."services.nvd.nist.gov"]
+# max_requests = 5
+# window_seconds = 30.0

@@ -1,0 +1,45 @@
+[project]
+name = "strata"
+version = "0.1.0"
+description = "STRATA — local-only OT/ICS threat-capability tracking pipeline (Week 1 spine)"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "typer>=0.12",
+    # Deliberately deferred to later weeks (see strata-engineering-spec.md
+    # section 9 / build plan): pyyaml (corpus loader), jinja2 (report
+    # rendering), networkx (graph projection/traversal), simpleeval (hunt
+    # falsifies_if evaluation), stix2 (STIX export). Not needed for the
+    # Week 1 collect -> store -> stats spine and deliberately excluded to
+    # keep the dependency surface minimal until they are load-bearing.
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "respx>=0.21",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+strata = "strata.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/strata"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

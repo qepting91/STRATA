@@ -1,0 +1,96 @@
+{
+  "document": {
+    "category": "csaf_security_advisory",
+    "csaf_version": "2.0",
+    "distribution": {
+      "text": "Disclosure is not limited",
+      "tlp": { "label": "WHITE" }
+    },
+    "lang": "en-US",
+    "publisher": {
+      "category": "coordinator",
+      "contact_details": "central@cisa.dhs.gov",
+      "name": "CISA",
+      "namespace": "https://www.cisa.gov/"
+    },
+    "references": [
+      {
+        "category": "self",
+        "summary": "ICS Advisory ICSA-26-006-01 JSON",
+        "url": "https://raw.githubusercontent.com/cisagov/CSAF/develop/csaf_files/OT/white/2026/icsa-26-006-01.json"
+      }
+    ],
+    "title": "Columbia Weather Systems MicroServer",
+    "tracking": {
+      "current_release_date": "2026-01-06T07:00:00.000000Z",
+      "id": "ICSA-26-006-01",
+      "initial_release_date": "2026-01-06T07:00:00.000000Z",
+      "status": "final",
+      "version": "2"
+    }
+  },
+  "product_tree": {
+    "branches": [
+      {
+        "branches": [
+          {
+            "branches": [
+              {
+                "category": "product_version_range",
+                "name": "<MS_4.1_14142",
+                "product": {
+                  "name": "Columbia Weather Systems MicroServer firmware: <MS_4.1_14142",
+                  "product_id": "CSAFPID-0001"
+                }
+              }
+            ],
+            "category": "product_name",
+            "name": "MicroServer firmware"
+          }
+        ],
+        "category": "vendor",
+        "name": "Columbia Weather Systems"
+      }
+    ]
+  },
+  "vulnerabilities": [
+    {
+      "cve": "CVE-2025-61939",
+      "cwe": {
+        "id": "CWE-923",
+        "name": "Improper Restriction of Communication Channel to Intended Endpoints"
+      },
+      "product_status": { "known_affected": ["CSAFPID-0001"] },
+      "scores": [
+        {
+          "cvss_v3": {
+            "baseScore": 8.8,
+            "baseSeverity": "HIGH",
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+            "version": "3.1"
+          },
+          "products": ["CSAFPID-0001"]
+        }
+      ]
+    },
+    {
+      "cve": "CVE-2025-64305",
+      "cwe": {
+        "id": "CWE-313",
+        "name": "Cleartext Storage in a File or on Disk"
+      },
+      "product_status": { "known_affected": ["CSAFPID-0001"] },
+      "scores": [
+        {
+          "cvss_v3": {
+            "baseScore": 6.5,
+            "baseSeverity": "MEDIUM",
+            "vectorString": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+            "version": "3.1"
+          },
+          "products": ["CSAFPID-0001"]
+        }
+      ]
+    }
+  ]
+}
