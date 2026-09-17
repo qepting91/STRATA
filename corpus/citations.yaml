@@ -73,3 +73,56 @@ S-0006:
   supports: >
     UNC5221/UNC5174 exploitation of CVE-2025-31324 in SAP NetWeaver
     Visual Composer.
+
+# Week 3 additions (verified live via web search/fetch, 2026-09-17): the
+# remaining 5 spec-listed groups, each cited to its own Dragos public
+# threat-group page. None of these 5 pages names a specific CVE, so
+# unlike S-0004/S-0005/S-0006 above, no independent vendor/press
+# citation is needed for this batch -- each group file below cites only
+# its own S-00xx entry.
+
+S-0007:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/electrum
+  retrieved: "2026-09-17"
+  supports: >
+    ELECTRUM identity, its role executing the control-system portion of
+    the December 2016 Kyiv power outage via CRASHOVERRIDE, targeted
+    sector/geos, and its assessed link to the SANDWORM APT.
+
+S-0008:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/azurite
+  retrieved: "2026-09-17"
+  supports: >
+    AZURITE identity, role targeting OT engineering workstations for
+    reconnaissance/capability-development, targeted sectors/geos, web
+    shell tooling (Chopper, Godzilla, SuperShell), and assessed overlaps
+    with Flax Typhoon / Ethereal Panda / UNC5923.
+
+S-0009:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/pyroxene
+  retrieved: "2026-09-17"
+  supports: >
+    PYROXENE identity, its supply-chain-compromise and social-engineering
+    tradecraft, targeted sectors/geos, MINIBIKE tooling, and its
+    collaboration with PARISITE to move from IT into OT networks.
+
+S-0010:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/bauxite
+  retrieved: "2026-09-17"
+  supports: >
+    BAUXITE identity, Stage 2 ICS Cyber Kill Chain capability, targeted
+    sectors/geos, IOCONTROL malware (Linux backdoor with MQTT C2), and
+    assessed overlap with the CyberAv3ngers hacktivist persona.
+
+S-0011:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/parisite
+  retrieved: "2026-09-17"
+  supports: >
+    PARISITE identity, its initial-access/enablement role (no ICS-native
+    disruptive capability of its own), targeted sectors/geos, and its
+    handoffs enabling both MAGNALLIUM and PYROXENE operations.

@@ -93,6 +93,20 @@ carry an identifying `User-Agent` string. Conditional requests
 (`If-None-Match` / `If-Modified-Since`) avoid re-fetching unchanged
 resources, backed by a per-source on-disk manifest.
 
+**Rate-limit overrides (Week 3):** `NetClient` accepts an optional
+`rate_limit_overrides` dict, merged on top of the file-loaded config, so
+a caller who knows a faster tier legitimately applies (NVD's documented
+50 req/30s tier when `NVD_API_KEY` is present) can raise the effective
+limit without editing `config/sources.toml` — which has no way to
+express "conditional on a secret being present." This is opt-in per
+collector construction, not a general bypass: only `cli.py`'s NVD
+collector wiring passes an override, and only when the key is actually
+set. A bounded 429 retry (3 attempts, exponential backoff, honoring
+`Retry-After`) was added to `net.py` after NVD's real short-burst limit
+was hit live in testing, even with the override applied and a valid key
+— it always terminates (bounded loop, no infinite retry) and never
+retries a non-429 response.
+
 ## Reproducibility as an integrity control
 
 Every successful (200) fetch is written to

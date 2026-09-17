@@ -181,9 +181,19 @@ class NetClient:
         allowlist_path: Path | str = "config/allowlist.txt",
         sources_config_path: Path | str = "config/sources.toml",
         data_dir: Path | str = "data",
+        rate_limit_overrides: dict[str, tuple[int, float]] | None = None,
     ) -> None:
         self._allowlist = load_allowlist(allowlist_path)
-        self._rate_limiter = _RateLimiter(load_rate_limits(sources_config_path))
+        limits = load_rate_limits(sources_config_path)
+        if rate_limit_overrides:
+            # Override wins over the file-loaded config -- this is what
+            # lets a caller who knows a faster tier applies (e.g. NVD with
+            # an API key unlocking 50 req/30s instead of the file's
+            # conservative unconditional 5 req/30s) raise the effective
+            # limit without editing config/sources.toml, which has no way
+            # to express "conditional on a secret being present."
+            limits = {**limits, **{h.lower(): v for h, v in rate_limit_overrides.items()}}
+        self._rate_limiter = _RateLimiter(limits)
         self._data_dir = Path(data_dir)
         self._client = httpx.Client(
             follow_redirects=False,
@@ -191,6 +201,36 @@ class NetClient:
             headers={"User-Agent": USER_AGENT},
             event_hooks={"request": [self._check_allowlist]},
         )
+
+    def _get_with_retry(
+        self, url: str, host: str, headers: dict[str, str]
+    ) -> httpx.Response:
+        """GET with bounded retry-with-backoff on 429, honoring Retry-After.
+
+        Some allowlisted APIs (NVD's cve/2.0 endpoint in particular)
+        enforce a short burst-protection window tighter than their
+        documented rolling-window budget, so even a client that is
+        pacing to the configured rate limit can occasionally see a 429 on
+        the very first request of a run. This is a real-world quirk, not
+        a client bug -- retrying with backoff rather than propagating the
+        first 429 as a hard failure is what makes a from-cold-start
+        collector run reliable in practice.
+        """
+        max_retries = 3
+        backoff = 2.0
+        for attempt in range(max_retries + 1):
+            self._rate_limiter.wait(host)
+            response = self._client.get(url, headers=headers)
+            if response.status_code != 429 or attempt == max_retries:
+                return response
+            retry_after = response.headers.get("retry-after")
+            try:
+                delay = float(retry_after) if retry_after else backoff
+            except ValueError:
+                delay = backoff
+            time.sleep(delay)
+            backoff *= 2
+        return response  # pragma: no cover -- loop always returns above
 
     def _check_allowlist(self, request: httpx.Request) -> None:
         host = request.url.host
@@ -270,8 +310,7 @@ class NetClient:
             if cached.get("last_modified"):
                 headers["If-Modified-Since"] = cached["last_modified"]
 
-        self._rate_limiter.wait(host)
-        response = self._client.get(url, headers=headers)
+        response = self._get_with_retry(url, host, headers)
 
         if response.status_code == 304:
             if cached is None:

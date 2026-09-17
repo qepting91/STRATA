@@ -1,0 +1,31 @@
+# Telemetry requirement matrix (STRATA Week 3, spec section 6.5). The 6
+# example rows given directly in strata-engineering-spec.md -- generic,
+# already-published industry/spec knowledge (hunt technique -> required
+# telemetry -> typical OT collection status -> difficulty), not a
+# proprietary or per-organization claim, so authored directly rather than
+# researched per-row.
+rows:
+  - hunt: SOCKS/SOCKS5 tunnel anomaly
+    telemetry_required: East-west NetFlow or span at L3.5
+    typically_collected_in_ot: Rarely
+    difficulty: High
+  - hunt: RDP/SMB proxy tunnel IT->OT
+    telemetry_required: Boundary firewall session logs
+    typically_collected_in_ot: Sometimes
+    difficulty: Medium
+  - hunt: EWS industrial software manipulation
+    telemetry_required: Endpoint process + file-write on EWS
+    typically_collected_in_ot: Rarely (no EDR on EWS)
+    difficulty: High
+  - hunt: MQTT 8883 sustained C2
+    telemetry_required: Perimeter flow with port retention
+    typically_collected_in_ot: Sometimes
+    difficulty: Medium
+  - hunt: LOTL / PowerShell abuse
+    telemetry_required: PowerShell script-block logging
+    typically_collected_in_ot: Almost never
+    difficulty: Low to enable
+  - hunt: VPN session-count outliers
+    telemetry_required: VPN auth logs with baseline
+    typically_collected_in_ot: Usually
+    difficulty: Low

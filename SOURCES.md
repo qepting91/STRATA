@@ -48,21 +48,37 @@ provides. All sources below are free and require no authentication.
   the sample happens to cover. A more complete backfill (paging further
   into the tree, or using CISA's ROLIE index) is later-week scope.
 
-## `nvd` — NVD CVE enrichment (Week 2)
+## `nvd` — NVD CVE enrichment (Week 2, full backfill run Week 3)
 
 - **URL:** `https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=<CVE>`
 - **License / terms:** U.S. Government public-domain work product. An
-  optional `NVD_API_KEY` unlocks a faster tier (documented `apiKey`
-  request header), but this collector works keyless.
+  optional `NVD_API_KEY` unlocks a faster documented tier (50 req/30s vs.
+  5 req/30s keyless), sent as the `apiKey` request header via
+  `NetClient.fetch()`'s `extra_headers` param (never persisted in the
+  cache manifest or the `source` table's URL column).
+- **Rate-limit override (Week 3):** `net.py`'s rate limiter is
+  static/file-configured and has no concept of "faster when a secret is
+  present," so `cli.py` passes a `rate_limit_overrides` dict to
+  `NetClient` when `settings.nvd_api_key` is set, raising the effective
+  limit for `services.nvd.nist.gov` to 50/30s for that run only. This is
+  what turned the full ~1,790-CVE backfill from an estimated ~3 hours
+  (Week 2, keyless-tier estimate) into an actually-completed ~15-minute
+  run (Week 3, keyed).
+- **429 retry (discovered live, Week 3):** even with a valid key and the
+  override applied, the very first live request in the full backfill run
+  hit an HTTP 429 -- NVD enforces a tighter short-burst limit than its
+  documented rolling 50/30s budget. `net.py` now retries a 429 with
+  bounded exponential backoff (3 retries, honoring `Retry-After` when
+  present), without which the real backfill could not complete at all.
 - **Scope decision:** enriches CVEs already present as `vuln` nodes
   (seeded by KEV/CSAF) rather than backfilling the whole NVD corpus --
-  one HTTP request per known CVE. At ~1,800 known CVEs and the
-  conservative 5 req/30s limit in `config/sources.toml`, a full run takes
-  on the order of tens of minutes. `--since` is not meaningful for this
+  one HTTP request per known CVE. `--since` is not meaningful for this
   mode and is ignored with a log notice rather than erroring.
-- **What it gives you:** CVSS v3.1 base score/vector, CWE id(s), and CPE
-  `configurations` matches, which are turned into `product`/`vendor`
-  nodes and `affects`/`made_by` edges via `normalize/cpe.py`.
+- **What it gives you:** CVSS v3.1 base score/vector, CWE id(s), CPE
+  `configurations` matches (-> `product`/`vendor` nodes and
+  `affects`/`made_by` edges via `normalize/cpe.py`), and (Week 3) the
+  English-language CVE description text, which the protocol classifier
+  reads.
 - **Provenance granularity:** one `source` row per CVE queried
   (`nvd-<CVE>`).
 

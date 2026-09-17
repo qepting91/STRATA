@@ -37,7 +37,13 @@ CREATE TABLE IF NOT EXISTS edge (
             'overlaps_with', 'affects', 'involves', 'made_by', 'describes'
         )
     ),
-    source_id TEXT NOT NULL REFERENCES source(id)
+    source_id TEXT NOT NULL REFERENCES source(id),
+    -- Week 3 addition: records which rule fired for a classifier-derived
+    -- edge (e.g. involves edges from enrich/protocol.py: "keyword:modbus").
+    -- NULL for every other edge type, which is unaffected. See store.py's
+    -- get_connection() for the runtime migration that adds this column to
+    -- any pre-existing (Week 1/2) database that predates this change.
+    note      TEXT
 );
 
 -- Unused this week; schema present so it is stable across future weeks.

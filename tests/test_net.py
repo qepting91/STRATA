@@ -6,6 +6,7 @@ in this test module.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import httpx
@@ -174,3 +175,98 @@ def test_fetch_rejects_unsafe_source_names(
 ) -> None:
     with pytest.raises(ValueError):
         client.fetch("https://example.test/feed.json", source=bad_source, offline=True)
+
+
+def test_rate_limit_override_wins_over_file_config(
+    net_paths: tuple[Path, Path, Path],
+) -> None:
+    """A rate_limit_overrides entry must replace, not merge alongside, the
+    file-loaded limit for that host -- this is what lets cli.py raise NVD's
+    effective rate limit when an API key is present without editing
+    config/sources.toml (which has no way to express "conditional on a
+    secret")."""
+    allowlist_path, sources_path, data_dir = net_paths
+    # File config says 1000 req/1s for example.test (see net_paths fixture).
+    client = net.NetClient(
+        allowlist_path=allowlist_path,
+        sources_config_path=sources_path,
+        data_dir=data_dir,
+        rate_limit_overrides={"example.test": (1, 60.0)},
+    )
+    try:
+        assert client._rate_limiter._limits["example.test"] == (1, 60.0)
+    finally:
+        client.close()
+
+
+def test_rate_limit_override_for_unconfigured_host_is_added(
+    net_paths: tuple[Path, Path, Path],
+) -> None:
+    allowlist_path, sources_path, data_dir = net_paths
+    client = net.NetClient(
+        allowlist_path=allowlist_path,
+        sources_config_path=sources_path,
+        data_dir=data_dir,
+        rate_limit_overrides={"services.nvd.nist.gov": (50, 30.0)},
+    )
+    try:
+        assert client._rate_limiter._limits["services.nvd.nist.gov"] == (50, 30.0)
+        # File-loaded host config for example.test is untouched.
+        assert client._rate_limiter._limits["example.test"] == (1000, 1.0)
+    finally:
+        client.close()
+
+
+@respx.mock
+def test_429_is_retried_with_backoff_then_succeeds(
+    client: net.NetClient,
+) -> None:
+    """A 429 (e.g. NVD's burst-protection quirk) must be retried with
+    backoff, not propagated as a hard failure on the first hit."""
+    url = "https://example.test/feed.json"
+    route = respx.get(url).mock(
+        side_effect=[
+            httpx.Response(429, headers={"Retry-After": "0"}),
+            httpx.Response(200, json={"v": 1}),
+        ]
+    )
+    result = client.fetch(url, source="unit-test", offline=False)
+    assert route.call_count == 2
+    assert result.status_code == 200
+
+
+@respx.mock
+def test_429_exhausts_retries_and_raises(client: net.NetClient) -> None:
+    url = "https://example.test/feed.json"
+    respx.get(url).mock(return_value=httpx.Response(429, headers={"Retry-After": "0"}))
+    with pytest.raises(httpx.HTTPStatusError):
+        client.fetch(url, source="unit-test", offline=False)
+
+
+@respx.mock
+def test_rate_limit_override_actually_throttles_requests(
+    net_paths: tuple[Path, Path, Path],
+) -> None:
+    """Timing-based proof that an override is not just stored but actually
+    enforced by _RateLimiter.wait()."""
+    allowlist_path, sources_path, data_dir = net_paths
+    client = net.NetClient(
+        allowlist_path=allowlist_path,
+        sources_config_path=sources_path,
+        data_dir=data_dir,
+        # File config allows 1000 req/1s; override tightens it to 2 req/0.4s
+        # (min_interval=0.2s) so we can prove enforcement cheaply in a test.
+        rate_limit_overrides={"example.test": (2, 0.4)},
+    )
+    url = "https://example.test/feed.json"
+    respx.get(url).mock(return_value=httpx.Response(200, json={"v": 1}))
+    try:
+        start = time.monotonic()
+        client.fetch(f"{url}?a=1", source="unit-test", offline=False)
+        client.fetch(f"{url}?a=2", source="unit-test", offline=False)
+        elapsed = time.monotonic() - start
+        # Both requests hit the same host, so the second must wait for the
+        # override's min_interval (0.2s), not the file config's ~0.001s.
+        assert elapsed >= 0.2
+    finally:
+        client.close()

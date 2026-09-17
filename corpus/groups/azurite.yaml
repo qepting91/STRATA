@@ -1,0 +1,56 @@
+# AZURITE: OT reconnaissance and capability-development group.
+#
+# All facts sourced to Dragos's public AZURITE page (S-0008). No specific
+# CVEs are named in that public reporting (it describes exploitation of
+# "Ivanti, Fortinet, Cisco, GIS, and F5 internet-facing assets" generically),
+# so this file has no `exploits` list. Assigning orgs for the aliases are
+# inferred from each firm's well-known public naming convention
+# (Microsoft: weather+noun; CrowdStrike: animal+adjective; Mandiant:
+# UNCxxxx) -- the underlying overlap claim itself is Dragos's (S-0008),
+# not invented. The reported "shared objectives with VOLTZITE" is too
+# vague to model as a discrete hands_off_to/overlaps_with edge, so it is
+# noted here only as a comment, not asserted as an edge.
+id: azurite
+name: AZURITE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: ot_recon_and_capability_development
+
+aliases:
+  - name: Flax Typhoon
+    org: Microsoft
+    src: S-0008
+  - name: Ethereal Panda
+    org: CrowdStrike
+    src: S-0008
+  - name: UNC5923
+    org: Mandiant
+    src: S-0008
+
+targets:
+  sectors: [manufacturing, automotive, electric, oil_gas, pharmaceutical, defense_industrial_base, public_admin]
+  geos: [US, TW, JP, KR, AU]
+  src: S-0008
+
+tools:
+  - name: Chopper
+    class: webshell
+    src: S-0008
+  - name: Godzilla
+    class: webshell
+    src: S-0008
+  - name: SuperShell
+    class: webshell
+    src: S-0008
+
+techniques:
+  # T1210/T1021 (lateral movement to engineering workstations) and T1078
+  # (use of compromised SOHO routers as a relay network) both match
+  # S-0008's described tradecraft; T1005 (Data from Local System) matches
+  # the reported exfiltration of alarm data/PLC configs/HMI data.
+  - attack_id: T1021
+    matrix: enterprise
+    src: S-0008
+  - attack_id: T1005
+    matrix: enterprise
+    src: S-0008

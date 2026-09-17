@@ -1,0 +1,99 @@
+# Purdue Enterprise Reference Architecture level/class mapping (STRATA
+# Week 3, enrich/purdue.py). Transcribed verbatim from
+# strata-engineering-spec.md section 6.3 -- factual ICS reference-model
+# levels plus the spec's own example product rows, not an attributed
+# claim, so authored directly.
+#
+# `levels` is a documentation/reference table (class -> Purdue level),
+# included for completeness even though enrich/purdue.py currently joins
+# only via the `products` table below (a product node's vendor/product
+# attrs -> level/class). A future pass could infer level purely from a
+# product's `class` tag via this table if `products` lacks an entry.
+#
+# NOTE (Week 3 build-time finding): this file was first authored before
+# the full NVD backfill ran (see net.py's rate-limit-override + cli.py
+# wiring), when no `product` nodes yet existed in the local graph. After
+# the backfill completed (2,859 real product nodes from the KEV/CSAF CVE
+# set's CPE configurations), the products table below was extended with
+# entries that clearly correspond to a spec-listed product family at
+# reasonable confidence (matched via enrich/purdue.py's substring logic
+# against real vendor_product node ids observed live):
+#   - sierrawireless_airlink: real CPE vendor is "sierrawireless" (one
+#     token, no underscore before "wireless"), not "sierra_wireless" as
+#     spec's worked example spelled it -- added as its own key so the
+#     many real sierrawireless_airlink_<model> ids (es440, gx450, mp70,
+#     rv50, ...) match.
+#   - siemens_simatic_s7_1500: a distinct, newer Siemens PLC family from
+#     the spec's example siemens_s7_400 (which is also kept, in case a
+#     CVE dataset with older S7-400 CPEs is loaded later) -- same
+#     level/class (1, plc), added because dozens of real
+#     siemens_simatic_s7_1500_* product ids showed up in the backfill.
+# Several spec example keys already match real ids via the existing
+# substring logic in enrich/purdue.py without any config change:
+# ivanti_connect_secure (exact), trimble_cityworks (exact),
+# vmware_esxi (exact), citrix_netscaler (substring match against
+# citrix_netscaler_gateway/citrix_netscaler_application_delivery_
+# controller), f5_big_ip (substring match against the many
+# f5_big_ip_<module> ids), fortinet_fortigate (substring match against
+# fortinet_fortigate_<model> ids), unitronics_vision (substring match
+# against unitronics_vision<model> ids).
+# Deliberately NOT added: the real paloaltonetworks_pa_*/paloaltonetworks_
+# pan_os ids (vendor "paloaltonetworks", hardware/OS product lines) do not
+# confidently correspond to spec's paloalto_globalprotect (GlobalProtect
+# is a VPN client feature of PAN-OS, not the hardware/OS product itself);
+# schneider_electric_u_motion_builder is a different product line from
+# spec's schneider_altivar (VFD); no accuenergy_axm CPE appeared in this
+# backfill at all. All left unmapped -- enrich/purdue.py.classify_product()
+# returns None gracefully for any product id with no confident mapping.
+levels:
+  5:   [internet_facing_dmz]
+  4:   [erp, email, enterprise_ad]
+  3.5: [vpn_gateway, firewall, jump_host, remote_access, cellular_gateway]
+  3:   [historian, ews, gis, mes, patch_server]
+  2:   [hmi, scada_server, alarm_server]
+  1:   [plc, rtu, safety_controller, vfd]
+  0:   [sensor, actuator, meter]
+
+products:
+  ivanti_connect_secure:
+    level: 3.5
+    class: remote_access
+  fortinet_fortigate:
+    level: 3.5
+    class: firewall
+  paloalto_globalprotect:
+    level: 3.5
+    class: remote_access
+  f5_big_ip:
+    level: 3.5
+    class: remote_access
+  citrix_netscaler:
+    level: 3.5
+    class: remote_access
+  sierra_wireless_airlink:
+    level: 3.5
+    class: cellular_gateway
+  trimble_cityworks:
+    level: 3
+    class: gis
+  vmware_esxi:
+    level: 3
+    class: virtualization
+  schneider_altivar:
+    level: 1
+    class: vfd
+  unitronics_vision:
+    level: 1
+    class: plc
+  siemens_s7_400:
+    level: 1
+    class: plc
+  accuenergy_axm:
+    level: 0
+    class: meter
+  sierrawireless_airlink:
+    level: 3.5
+    class: cellular_gateway
+  siemens_simatic_s7_1500:
+    level: 1
+    class: plc

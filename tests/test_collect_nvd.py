@@ -68,6 +68,14 @@ def test_nvd_enriches_existing_vuln_node_preserving_old_attrs(
     # ...and new NVD fields land.
     assert attrs["cvss_v31_base"] == 8.2
     assert attrs["cwe"] == ["CWE-287"]
+    # ...including the English description text (first `en` entry), which
+    # the enrich.protocol classifier depends on -- must not pick up the
+    # non-English entry.
+    assert attrs["description"] == (
+        "An authentication bypass vulnerability in the web component of "
+        "Ivanti Connect Secure allows a remote attacker to access "
+        "restricted resources by bypassing control checks."
+    )
 
     node_counts = store.count_nodes_by_type(conn)
     assert node_counts.get("product") == 2  # connect_secure, policy_secure

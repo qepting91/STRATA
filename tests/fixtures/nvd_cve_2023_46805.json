@@ -12,6 +12,16 @@
         "published": "2024-01-12T17:15:09.530",
         "lastModified": "2026-08-04T05:16:29.273",
         "vulnStatus": "Analyzed",
+        "descriptions": [
+          {
+            "lang": "en",
+            "value": "An authentication bypass vulnerability in the web component of Ivanti Connect Secure allows a remote attacker to access restricted resources by bypassing control checks."
+          },
+          {
+            "lang": "es",
+            "value": "Una vulnerabilidad de omision de autenticacion en el componente web de Ivanti Connect Secure."
+          }
+        ],
         "metrics": {
           "cvssMetricV31": [
             {

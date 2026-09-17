@@ -1,0 +1,36 @@
+# ELECTRUM: ICS disruption operator, ICS kill-chain stage 2.
+#
+# All facts sourced to Dragos's public ELECTRUM page (S-0007). This file
+# upgrades the bare stub node that `strata corpus load` created in Week 2
+# (referenced only via kamacite.yaml's hands_off_to edge) to a full
+# profile. That handoff is declared once, on kamacite.yaml -- it is not
+# re-asserted here, to avoid a duplicate edge row.
+id: electrum
+name: ELECTRUM
+naming_org: Dragos
+ics_kill_chain_stage: 2
+role: ics_disruption_operator
+
+targets:
+  sectors: [electric_power_td]
+  # S-0007: Ukraine (2015/2016 grid events); "the group is no longer
+  # focusing exclusively on Ukraine" and its SANDWORM link implies
+  # broader European reach, but no other specific country is named, so
+  # only UA is listed as a concrete geo.
+  geos: [UA]
+  src: S-0007
+
+tools:
+  # CRASHOVERRIDE: the ICS malware used to manipulate electric
+  # transmission equipment during the December 2016 Kyiv outage.
+  - name: CRASHOVERRIDE
+    class: ics_malware
+    src: S-0007
+
+techniques:
+  # T1584 (Compromise Infrastructure): S-0007 describes using
+  # already-compromised MS SQL database servers as the bridge between
+  # business and industrial control networks.
+  - attack_id: T1584
+    matrix: enterprise
+    src: S-0007

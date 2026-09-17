@@ -1,0 +1,52 @@
+# ICS protocol classifier rules (STRATA Week 3, enrich/protocol.py).
+#
+# Transcribed verbatim from strata-engineering-spec.md section 6.2. This is
+# factual protocol/port/keyword data (public protocol specs), not an
+# attributed claim, so it is authored directly rather than researched
+# per-row like the corpus's group YAML files.
+#
+# Each entry: name, ports (weak, secondary signal only -- never sufficient
+# alone), keywords (case-insensitive substring match, primary evidence),
+# function_codes (optional, protocol-specific opcode -> human name map,
+# used only to corroborate a keyword match already made via a
+# "function code N" regex hit in the classified text).
+
+- name: Modbus
+  ports: [502]
+  keywords: [modbus, "function code", "holding register", coil]
+  function_codes:
+    3: read_holding
+    6: write_single
+    16: write_multiple
+
+- name: S7comm
+  ports: [102]
+  keywords: [s7comm, "s7-300", "s7-400", "s7-1200", "s7-1500", cotp, tsap]
+
+- name: IEC-104
+  ports: [2404]
+  keywords: ["iec 60870-5-104", "iec-104", asdu, apdu]
+
+- name: DNP3
+  ports: [20000]
+  keywords: [dnp3, outstation, "distributed network protocol"]
+
+- name: IEC-61850
+  ports: [102, 61850]
+  keywords: ["iec 61850", goose, mms, "sampled values"]
+
+- name: EtherNet/IP
+  ports: [44818, 2222]
+  keywords: ["ethernet/ip", cip, "common industrial protocol"]
+
+- name: OPC-UA
+  ports: [4840]
+  keywords: ["opc ua", "opc-ua"]
+
+- name: BACnet
+  ports: [47808]
+  keywords: [bacnet]
+
+- name: MQTT
+  ports: [1883, 8883]
+  keywords: [mqtt]

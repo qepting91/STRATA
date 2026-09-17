@@ -270,6 +270,128 @@ def test_insert_signal_with_invalid_source_id_raises(
         )
 
 
+def test_fresh_db_has_edge_note_column(db_conn: sqlite3.Connection) -> None:
+    cols = {row["name"] for row in db_conn.execute("PRAGMA table_info(edge)").fetchall()}
+    assert "note" in cols
+
+
+def test_edge_note_round_trips(db_conn: sqlite3.Connection) -> None:
+    store.insert_source(
+        db_conn,
+        id="src-note",
+        name="test-source",
+        url="https://example.test/feed",
+        fetched_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_node(
+        db_conn, id="CVE-2024-2222", type="vuln", label="CVE-2024-2222",
+        attrs=None, created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_node(
+        db_conn, id="protocol-modbus", type="protocol", label="Modbus",
+        attrs=None, created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_edge(
+        db_conn,
+        id="edge-note-1",
+        src_id="CVE-2024-2222",
+        dst_id="protocol-modbus",
+        type="involves",
+        source_id="src-note",
+        note="keyword:modbus",
+    )
+    row = db_conn.execute(
+        "SELECT note FROM edge WHERE id = ?", ("edge-note-1",)
+    ).fetchone()
+    assert row["note"] == "keyword:modbus"
+
+
+def test_migrate_edge_note_column_on_pre_existing_db(tmp_path) -> None:
+    """Simulate a Week 1/2 database created before edge.note existed: build
+    the edge table without the column by hand, then confirm
+    get_connection()'s migration adds it without erroring."""
+    import sqlite3 as _sqlite3
+
+    db_path = tmp_path / "old.db"
+    conn = _sqlite3.connect(str(db_path))
+    conn.execute(
+        """
+        CREATE TABLE source (
+            id TEXT PRIMARY KEY, name TEXT NOT NULL, url TEXT,
+            fetched_at TEXT NOT NULL, sha256 TEXT, http_status INTEGER
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE node (
+            id TEXT PRIMARY KEY, type TEXT NOT NULL, label TEXT NOT NULL,
+            attrs TEXT, created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE edge (
+            id TEXT PRIMARY KEY, src_id TEXT NOT NULL, dst_id TEXT NOT NULL,
+            type TEXT NOT NULL, source_id TEXT NOT NULL
+        )
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    migrated_conn = store.get_connection(db_path)
+    cols = {row["name"] for row in migrated_conn.execute("PRAGMA table_info(edge)").fetchall()}
+    assert "note" in cols
+    migrated_conn.close()
+
+
+def test_get_all_vuln_nodes(db_conn: sqlite3.Connection) -> None:
+    import json
+
+    store.insert_node(
+        db_conn, id="CVE-2024-3333", type="vuln", label="CVE-2024-3333",
+        attrs=json.dumps({"description": "modbus function code issue"}),
+        created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_node(
+        db_conn, id="advisory-y", type="advisory", label="Y",
+        attrs=None, created_at="2026-01-01T00:00:00Z",
+    )
+    vulns = store.get_all_vuln_nodes(db_conn)
+    assert len(vulns) == 1
+    assert vulns[0]["id"] == "CVE-2024-3333"
+    assert vulns[0]["attrs"]["description"] == "modbus function code issue"
+
+
+def test_get_all_products(db_conn: sqlite3.Connection) -> None:
+    import json
+
+    store.insert_node(
+        db_conn, id="ivanti_connect_secure", type="product", label="connect_secure",
+        attrs=json.dumps({"vendor": "ivanti", "product": "connect_secure"}),
+        created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_node(
+        db_conn, id="CVE-2024-4444", type="vuln", label="CVE-2024-4444",
+        attrs=None, created_at="2026-01-01T00:00:00Z",
+    )
+    products = store.get_all_products(db_conn)
+    assert len(products) == 1
+    assert products[0]["id"] == "ivanti_connect_secure"
+    assert products[0]["attrs"]["vendor"] == "ivanti"
+
+
+def test_source_exists(db_conn: sqlite3.Connection) -> None:
+    store.insert_source(
+        db_conn, id="src-exists", name="test-source", url=None,
+        fetched_at="2026-01-01T00:00:00Z",
+    )
+    assert store.source_exists(db_conn, "src-exists") is True
+    assert store.source_exists(db_conn, "src-does-not-exist") is False
+
+
 def test_insert_metric_observation_and_count(db_conn: sqlite3.Connection) -> None:
     store.insert_source(
         db_conn,

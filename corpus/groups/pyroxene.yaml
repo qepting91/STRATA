@@ -1,0 +1,42 @@
+# PYROXENE: supply-chain-compromise and social-engineering specialist.
+#
+# All facts sourced to Dragos's public PYROXENE page (S-0009). No
+# specific CVEs are named in that public reporting, so this file has no
+# `exploits` list. The handoff from PARISITE is declared once, on
+# parisite.yaml -- it is not re-asserted here, to avoid a duplicate edge
+# row.
+id: pyroxene
+name: PYROXENE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: supply_chain_and_social_engineering
+
+targets:
+  sectors: [defense_industrial_base, transportation, aerospace, aviation, maritime, public_admin]
+  # S-0009: expanded from the Middle East into North America and
+  # Western Europe since 2023; specific countries named for 2024-2025
+  # activity are the US, Israel, and the UAE.
+  geos: [US, IL, AE]
+  src: S-0009
+
+tools:
+  # MINIBIKE: a custom RAT named in S-0009. (Independently, MINIBIKE is
+  # publicly documented elsewhere as malware associated with the
+  # IRGC-linked APT33 cluster, consistent with S-0009's own statement of
+  # "extreme technical overlap" with an IRGC-CEC-aligned actor -- cited
+  # here to S-0009 only, since that is the source for PYROXENE's use of
+  # it specifically.)
+  - name: MINIBIKE
+    class: rat
+    src: S-0009
+
+techniques:
+  # T1566 (Phishing): recruitment-themed social engineering per S-0009.
+  # T1195 (Supply Chain Compromise): the group's core tradecraft per
+  # S-0009's own description.
+  - attack_id: T1566
+    matrix: enterprise
+    src: S-0009
+  - attack_id: T1195
+    matrix: enterprise
+    src: S-0009

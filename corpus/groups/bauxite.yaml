@@ -1,0 +1,41 @@
+# BAUXITE: ICS disruption operator, ICS kill-chain stage 2.
+#
+# All facts sourced to Dragos's public BAUXITE page (S-0010). No specific
+# CVEs are named in that public reporting, so this file has no
+# `exploits` list.
+id: bauxite
+name: BAUXITE
+naming_org: Dragos
+ics_kill_chain_stage: 2
+role: ics_disruption_operator
+
+aliases:
+  # CyberAv3ngers is a self-styled hacktivist persona name, not an
+  # analytic firm's assigned cluster name -- no assigning org applies the
+  # way it would for a Microsoft/CrowdStrike/Mandiant-coined alias.
+  - name: CyberAv3ngers
+    src: S-0010
+
+targets:
+  sectors: [oil_gas, electric, water_wastewater, food_beverage, chemical_manufacturing]
+  geos: [US, AU, GB, IL]
+  src: S-0010
+
+tools:
+  # IOCONTROL: a Linux-based backdoor communicating over MQTT, deployed
+  # against OT devices per S-0010. (Independently corroborated in public
+  # reporting elsewhere as a real, named ICS malware family associated
+  # with this activity cluster -- cited here to S-0010 for its use by
+  # BAUXITE specifically.)
+  - name: IOCONTROL
+    class: backdoor
+    src: S-0010
+
+techniques:
+  # T1210 (Exploitation of Remote Services) / T1133 (External Remote
+  # Services): S-0010 describes compromising PLCs and deploying custom
+  # backdoors on OT devices, consistent with remote-service exploitation
+  # as the entry vector.
+  - attack_id: T1210
+    matrix: ics
+    src: S-0010

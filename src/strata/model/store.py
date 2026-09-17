@@ -46,7 +46,22 @@ def get_connection(db_path: Path | str) -> sqlite3.Connection:
     conn.executescript(schema_sql)
     conn.commit()
 
+    _migrate_edge_note_column(conn)
+
     return conn
+
+
+def _migrate_edge_note_column(conn: sqlite3.Connection) -> None:
+    """Idempotently add ``edge.note`` to a database created before this
+    column existed in schema.sql (Week 1/2 databases).
+
+    Safe to call on every connection open, including a fresh DB where
+    schema.sql already declares the column (in which case this is a no-op).
+    """
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(edge)").fetchall()}
+    if "note" not in cols:
+        conn.execute("ALTER TABLE edge ADD COLUMN note TEXT")
+        conn.commit()
 
 
 def insert_source(
@@ -177,6 +192,7 @@ def insert_edge(
     dst_id: str,
     type: str,
     source_id: str | None,
+    note: str | None = None,
 ) -> None:
     """Insert an edge row.
 
@@ -191,6 +207,10 @@ def insert_edge(
         dst_id: Destination node id.
         type: Edge type; must be one of the CHECK-constrained values.
         source_id: Provenance source id. Must not be None.
+        note: Optional free-text note recording which rule/evidence
+            produced this edge (e.g. a protocol classifier's
+            "keyword:modbus+port:502"). NULL for edge types that don't
+            need it.
 
     Raises:
         sqlite3.IntegrityError: If ``source_id`` is None, does not exist in
@@ -198,13 +218,14 @@ def insert_edge(
     """
     conn.execute(
         """
-        INSERT INTO edge (id, src_id, dst_id, type, source_id)
-        VALUES (:id, :src_id, :dst_id, :type, :source_id)
+        INSERT INTO edge (id, src_id, dst_id, type, source_id, note)
+        VALUES (:id, :src_id, :dst_id, :type, :source_id, :note)
         ON CONFLICT(id) DO UPDATE SET
             src_id = excluded.src_id,
             dst_id = excluded.dst_id,
             type = excluded.type,
-            source_id = excluded.source_id
+            source_id = excluded.source_id,
+            note = excluded.note
         """,
         {
             "id": id,
@@ -212,6 +233,7 @@ def insert_edge(
             "dst_id": dst_id,
             "type": type,
             "source_id": source_id,
+            "note": note,
         },
     )
     conn.commit()
@@ -231,6 +253,35 @@ def count_edges_by_type(conn: sqlite3.Connection) -> dict[str, int]:
         "SELECT type, COUNT(*) AS n FROM edge GROUP BY type ORDER BY type"
     ).fetchall()
     return {row["type"]: row["n"] for row in rows}
+
+
+def delete_edges_by_type(conn: sqlite3.Connection, type: str) -> int:
+    """Delete every edge of the given type. Returns the number removed.
+
+    Needed by re-runnable derived-edge enrichment passes (e.g. the
+    protocol classifier's ``involves`` edges): ``insert_edge`` is
+    upsert-by-id, so if a rule that used to match a CVE no longer does
+    (a bug fix, a config change), the old edge row is never naturally
+    removed just by re-running ``enrich.protocol.run()`` again -- it has
+    to be explicitly cleared first. Not used for edges with real,
+    independent per-run identity (e.g. ``describes``/``exploits``, which
+    should accumulate history, not be wiped and rebuilt).
+    """
+    cur = conn.execute("DELETE FROM edge WHERE type = ?", (type,))
+    conn.commit()
+    return cur.rowcount
+
+
+def source_exists(conn: sqlite3.Connection, source_id: str) -> bool:
+    """Return True if ``source_id`` names an existing ``source`` row.
+
+    Used by enrichment passes (e.g. ``enrich/protocol.py``) that want to
+    check provenance availability before attempting an edge insert, so a
+    missing source row can be logged/skipped clearly rather than surfacing
+    only as a raw ``sqlite3.IntegrityError`` from the FK constraint.
+    """
+    row = conn.execute("SELECT 1 FROM source WHERE id = ?", (source_id,)).fetchone()
+    return row is not None
 
 
 def count_sources(conn: sqlite3.Connection) -> int:
@@ -260,6 +311,58 @@ def get_all_vuln_cve_ids(conn: sqlite3.Connection) -> set[str]:
     """
     rows = conn.execute("SELECT id FROM node WHERE type = 'vuln'").fetchall()
     return {row["id"] for row in rows}
+
+
+def get_all_vuln_nodes(conn: sqlite3.Connection) -> list[dict]:
+    """Return every ``vuln``-type node as a dict with parsed attrs.
+
+    Used by ``enrich/protocol.py`` and ``enrich/timeline.py`` to read each
+    CVE's merged-upsert attrs (description, nvd_published, date_added,
+    etc.) without every caller re-implementing the JSON decode.
+
+    Returns:
+        A list of ``{"id": ..., "label": ..., "attrs": {...} | None}``
+        dicts, one per ``vuln`` node.
+    """
+    rows = conn.execute(
+        "SELECT id, label, attrs FROM node WHERE type = 'vuln' ORDER BY id"
+    ).fetchall()
+    vulns: list[dict] = []
+    for row in rows:
+        attrs = None
+        if row["attrs"] is not None:
+            try:
+                attrs = json.loads(row["attrs"])
+            except json.JSONDecodeError:
+                attrs = None
+        vulns.append({"id": row["id"], "label": row["label"], "attrs": attrs})
+    return vulns
+
+
+def get_all_products(conn: sqlite3.Connection) -> list[dict]:
+    """Return every ``product``-type node as a dict with parsed attrs.
+
+    Used by ``enrich/purdue.py`` to join each product's vendor/product
+    attrs against ``config/purdue_map.yaml``.
+
+    Returns:
+        A list of ``{"id": ..., "label": ..., "attrs": {...} | None}``
+        dicts, one per ``product`` node. ``attrs`` is decoded from JSON;
+        nodes with no/invalid attrs JSON get ``None``.
+    """
+    rows = conn.execute(
+        "SELECT id, label, attrs FROM node WHERE type = 'product' ORDER BY id"
+    ).fetchall()
+    products: list[dict] = []
+    for row in rows:
+        attrs = None
+        if row["attrs"] is not None:
+            try:
+                attrs = json.loads(row["attrs"])
+            except json.JSONDecodeError:
+                attrs = None
+        products.append({"id": row["id"], "label": row["label"], "attrs": attrs})
+    return products
 
 
 def insert_signal(
@@ -392,3 +495,27 @@ def count_metric_observations_by_name(conn: sqlite3.Connection) -> dict[str, int
         "ORDER BY metric_name"
     ).fetchall()
     return {row["metric_name"]: row["n"] for row in rows}
+
+
+def delete_metric_observations_by_names(conn: sqlite3.Connection, metric_names: list[str]) -> int:
+    """Delete every metric_observation row whose metric_name is in the given list.
+
+    Returns the number removed. Needed by the same re-runnability concern
+    as ``delete_edges_by_type``: ``insert_metric_observation`` is
+    upsert-by-id, so a metric that becomes uncomputable on a later run
+    (e.g. the input signal/advisory row it depended on was corrected or
+    removed) is never naturally cleared -- the previous run's stale value
+    sits in the table forever unless explicitly deleted first. A derived-
+    metrics enrichment pass should clear its own metric names here before
+    recomputing, mirroring ``enrich.protocol.run()``'s
+    ``delete_edges_by_type("involves")`` call.
+    """
+    if not metric_names:
+        return 0
+    placeholders = ",".join("?" for _ in metric_names)
+    cur = conn.execute(
+        f"DELETE FROM metric_observation WHERE metric_name IN ({placeholders})",
+        metric_names,
+    )
+    conn.commit()
+    return cur.rowcount

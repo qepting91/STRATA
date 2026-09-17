@@ -1,8 +1,8 @@
 """STRATA command-line interface.
 
-Week 1 scope: `strata collect` and `strata stats`. `strata build` is
-intentionally not implemented and not stubbed here, so `--help` does not
-advertise functionality that does not exist yet.
+`strata collect`, `strata stats`, `strata corpus load` (Week 1-2), and
+`strata build` (Week 3 -- corpus load + all enrichment passes in one
+command, closing the gap intentionally left open since Week 1).
 """
 
 from __future__ import annotations
@@ -24,6 +24,10 @@ from strata.collect.metasploit import MetasploitCollector
 from strata.collect.nuclei import NucleiCollector
 from strata.collect.nvd import NVDCollector
 from strata.collect.poc_github import PoCGitHubCollector
+from strata.enrich import consensus as enrich_consensus
+from strata.enrich import protocol as enrich_protocol
+from strata.enrich import purdue as enrich_purdue
+from strata.enrich import timeline as enrich_timeline
 from strata.model import store
 from strata.normalize.corpus import CorpusLoadError, load_corpus
 from strata.settings import Settings, get_settings
@@ -116,10 +120,19 @@ def collect(
             raise typer.BadParameter(f"--since must be YYYY-MM-DD, got {since!r}") from exc
 
     conn = store.get_connection(settings.db_path)
+    # NVD's documented keyed tier (50 req/30s) is much faster than the
+    # unconditional keyless-tier default baked into config/sources.toml
+    # (5 req/30s -- see the comment there). Since NetClient is shared
+    # across every collector in this run, the override is scoped to NVD's
+    # host only and is a no-op for every other collector/host.
+    rate_limit_overrides: dict[str, tuple[int, float]] | None = None
+    if settings.nvd_api_key is not None:
+        rate_limit_overrides = {"services.nvd.nist.gov": (50, 30.0)}
     net_client = net.NetClient(
         allowlist_path=settings.allowlist_path,
         sources_config_path=settings.sources_config_path,
         data_dir=settings.data_dir,
+        rate_limit_overrides=rate_limit_overrides,
     )
 
     collectors = _build_collectors(source, net_client, settings)
@@ -187,6 +200,30 @@ def stats() -> None:
     for name, latest in latest_fetches.items():
         typer.echo(f"  {name:<12} {latest}")
 
+    # Week 3 additions: `involves` edges surface via edge_counts above with
+    # no code change needed there. Purdue-level breakdown and top-N
+    # consensus products are new here.
+    products = store.get_all_products(conn)
+    level_counts: dict[str, int] = {}
+    for product in products:
+        attrs = product.get("attrs") or {}
+        level = attrs.get("purdue_level")
+        key = str(level) if level is not None else "(unmapped)"
+        level_counts[key] = level_counts.get(key, 0) + 1
+
+    typer.echo("\nPurdue level breakdown (product count by level):")
+    if not level_counts:
+        typer.echo("  (none)")
+    for level, count in sorted(level_counts.items()):
+        typer.echo(f"  {level:<12} {count}")
+
+    consensus_ranked = enrich_consensus.run(conn)
+    typer.echo("\nTop 5 products by adversary consensus (distinct groups):")
+    if not consensus_ranked:
+        typer.echo("  (none)")
+    for row in consensus_ranked[:5]:
+        typer.echo(f"  {row['product_id']:<30} groups={row['group_count']}")
+
     conn.close()
 
 
@@ -215,6 +252,51 @@ def corpus_load(
                f"{', '.join(summary.groups_loaded) or '(none)'}")
     typer.echo(f"Groups stub-created ({len(summary.groups_stubbed)}): "
                f"{', '.join(summary.groups_stubbed) or '(none)'}")
+
+    conn.close()
+
+
+@app.command()
+def build(
+    corpus_dir: str = typer.Option("corpus", "--corpus-dir", help="Corpus root directory."),
+) -> None:
+    """Normalize + load + enrich: corpus load, then all enrichment passes.
+
+    Matches spec section 11's `strata build # normalize + load + enrich`
+    exactly. Runs, in order: corpus load (idempotent, safe to re-run),
+    enrich.protocol.run, enrich.purdue.run, enrich.timeline.run, then
+    enrich.consensus.run (whose output is a ranking to print, not a graph
+    mutation -- it writes nothing back to the DB).
+    """
+    settings = get_settings()
+    conn = store.get_connection(settings.db_path)
+
+    try:
+        corpus_summary = load_corpus(conn, corpus_dir=corpus_dir)
+    except CorpusLoadError as exc:
+        conn.close()
+        raise typer.BadParameter(str(exc)) from exc
+
+    typer.echo("Corpus load:")
+    typer.echo(f"  nodes={corpus_summary.nodes} edges={corpus_summary.edges} "
+               f"sources={corpus_summary.sources}")
+
+    protocol_summary = enrich_protocol.run(conn)
+    typer.echo("Protocol classifier:")
+    typer.echo(f"  {protocol_summary}")
+
+    purdue_summary = enrich_purdue.run(conn)
+    typer.echo("Purdue mapping:")
+    typer.echo(f"  {purdue_summary}")
+
+    timeline_summary = enrich_timeline.run(conn)
+    typer.echo("Weaponization timeline:")
+    typer.echo(f"  {timeline_summary}")
+
+    consensus_ranked = enrich_consensus.run(conn)
+    typer.echo("Adversary consensus (top 5 by distinct-group count):")
+    for row in consensus_ranked[:5]:
+        typer.echo(f"  {row['product_id']:<30} groups={row['group_count']}")
 
     conn.close()
 

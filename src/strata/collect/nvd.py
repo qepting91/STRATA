@@ -140,6 +140,12 @@ class NVDCollector(Collector):
                 }
             )
 
+            description = None
+            for d in cve_obj.get("descriptions", []):
+                if d.get("lang") == "en":
+                    description = d.get("value")
+                    break
+
             cpe_criteria: list[str] = []
             for config in cve_obj.get("configurations", []):
                 for node in config.get("nodes", []):
@@ -154,6 +160,7 @@ class NVDCollector(Collector):
                     "cvss_vector": cvss_vector,
                     "cwe": cwes,
                     "nvd_published": cve_obj.get("published"),
+                    "description": description,
                 },
                 sort_keys=True,
             )

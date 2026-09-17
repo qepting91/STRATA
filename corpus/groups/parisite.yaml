@@ -1,0 +1,45 @@
+# PARISITE: initial-access broker, ICS kill-chain stage 1.
+#
+# All facts sourced to Dragos's public PARISITE page (S-0011). No
+# specific CVEs are named (only generic "known VPN vulnerabilities
+# affecting Fortinet, PulseSecure, and Palo Alto Networks appliances"),
+# so this file has no `exploits` list. Named tooling is generic
+# open-source pentest software (SSH.NET, MASSCAN, dsniff, Impacket) --
+# treated as too generic/commodity to list as an attributed "tool" entry
+# the way a named malware family is elsewhere in this corpus, so it is
+# omitted rather than force-fit.
+id: parisite
+name: PARISITE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: initial_access_broker
+
+targets:
+  sectors: [oil_gas, aerospace, electric, water_wastewater, public_admin, ngo]
+  geos: [US, AU]
+  src: S-0011
+
+techniques:
+  # T1133 (External Remote Services): exploiting known VPN appliance
+  # vulnerabilities for enterprise network entry, per S-0011.
+  - attack_id: T1133
+    matrix: enterprise
+    src: S-0011
+
+hands_off_to:
+  # S-0011: "PARISITE enables further operations for MAGNALLIUM" --
+  # stated directly, hence confidence: high. MAGNALLIUM is not one of
+  # the 8 spec-listed groups authored in this corpus; the loader
+  # stub-creates a bare group node for it, same as `electrum` was
+  # stub-created in Week 2 (now upgraded to a full profile in
+  # electrum.yaml).
+  - group: magnallium
+    confidence: high
+    src: S-0011
+  # S-0011 (via S-0009, PYROXENE's own page): "PYROXENE has collaborated
+  # with PARISITE" -- softer language than the MAGNALLIUM handoff above
+  # ("collaborated with" vs. "enables further operations for"), hence
+  # confidence: moderate rather than high.
+  - group: pyroxene
+    confidence: moderate
+    src: S-0011
