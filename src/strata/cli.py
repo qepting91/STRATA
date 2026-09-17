@@ -1,8 +1,9 @@
 """STRATA command-line interface.
 
-`strata collect`, `strata stats`, `strata corpus load` (Week 1-2), and
-`strata build` (Week 3 -- corpus load + all enrichment passes in one
-command, closing the gap intentionally left open since Week 1).
+`strata collect`, `strata stats`, `strata corpus load`, `strata build`
+(corpus load + all enrichment passes in one command), `strata export`
+(Storm/STIX/JSON-LD), `strata graph show` (capability traversal), and
+`strata ui` (the read-only Streamlit dashboard).
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ from strata.collect.nvd import NVDCollector
 from strata.collect.poc_github import PoCGitHubCollector
 from strata.collect.schneider_psirt import SchneiderPSIRTCollector
 from strata.collect.siemens_psirt import SiemensPSIRTCollector
+from strata.enrich import attack_software as enrich_attack_software
 from strata.enrich import consensus as enrich_consensus
 from strata.enrich import protocol as enrich_protocol
 from strata.enrich import purdue as enrich_purdue
@@ -36,12 +38,9 @@ from strata.export.graph_render import render_handoff_graph
 from strata.export.jsonld import build_jsonld
 from strata.export.stix import build_stix_bundle
 from strata.export.storm import generate_storm
-from strata.hunt.graph_ops import descendants_within
-from strata.hunt.runner import build_projection, load_all_hunts, load_hunt, run_hunt
-from strata.hunt.verdicts import evaluate_verdict, render_hunt_result
 from strata.model import store
+from strata.model.graph_ops import build_projection, descendants_within
 from strata.normalize.corpus import CorpusLoadError, load_corpus
-from strata.report.render import write_report
 from strata.settings import Settings, get_settings
 
 app = typer.Typer(help="STRATA - local-only OT/ICS threat-capability tracking pipeline.")
@@ -218,9 +217,9 @@ def stats() -> None:
     for name, latest in latest_fetches.items():
         typer.echo(f"  {name:<12} {latest}")
 
-    # Week 3 additions: `involves` edges surface via edge_counts above with
-    # no code change needed there. Purdue-level breakdown and top-N
-    # consensus products are new here.
+    # `involves` edges surface via edge_counts above with no code change
+    # needed there. Purdue-level breakdown and top-N consensus products
+    # follow.
     products = store.get_all_products(conn)
     level_counts: dict[str, int] = {}
     for product in products:
@@ -311,99 +310,16 @@ def build(
     typer.echo("Weaponization timeline:")
     typer.echo(f"  {timeline_summary}")
 
+    attack_software_summary = enrich_attack_software.run(conn, data_dir=settings.data_dir)
+    typer.echo("ATT&CK software cross-reference:")
+    typer.echo(f"  {attack_software_summary}")
+
     consensus_ranked = enrich_consensus.run(conn)
     typer.echo("Adversary consensus (top 5 by distinct-group count):")
     for row in consensus_ranked[:5]:
         typer.echo(f"  {row['product_id']:<30} groups={row['group_count']}")
 
     conn.close()
-
-
-hunt_app = typer.Typer(help="Load and run curated threat hunts (spec section 7).")
-app.add_typer(hunt_app, name="hunt")
-
-
-@hunt_app.command("list")
-def hunt_list(
-    hunts_dir: str = typer.Option("hunts", "--hunts-dir", help="Hunt YAML directory."),
-) -> None:
-    """List every hunt's id and title, sorted by id."""
-    hunts = load_all_hunts(hunts_dir)
-    for h in hunts:
-        typer.echo(f"{h.id:<6} {h.title}")
-
-
-class HuntOutputFormat(StrEnum):
-    """Valid values for `strata hunt run --format`."""
-
-    table = "table"
-    json = "json"
-
-
-_HUNT_FORMAT_OPTION = typer.Option(HuntOutputFormat.table, "--format", help="table or json.")
-
-
-@hunt_app.command("run")
-def hunt_run(
-    hunt_id: str | None = typer.Argument(
-        None, help="Hunt id to run, e.g. H001. Omit with --all to run every hunt."
-    ),
-    all_hunts: bool = typer.Option(False, "--all", help="Run every hunt in id order."),
-    output_format: HuntOutputFormat = _HUNT_FORMAT_OPTION,
-    hunts_dir: str = typer.Option("hunts", "--hunts-dir", help="Hunt YAML directory."),
-) -> None:
-    """Run one hunt (by id) or every hunt (--all) and print its verdict.
-
-    Refuted and insufficient verdicts are printed with equal prominence to
-    supported ones -- per spec section 7.3, a board that is all green is
-    evidence of a curated dataset, not a good analyst.
-    """
-    if not all_hunts and hunt_id is None:
-        raise typer.BadParameter("Provide a hunt id or pass --all.")
-
-    settings = get_settings()
-    conn = store.get_connection(settings.db_path)
-
-    if all_hunts:
-        hunts = load_all_hunts(hunts_dir)
-    else:
-        matches = [p for p in Path(hunts_dir).glob(f"{hunt_id}-*.yaml")]
-        if not matches:
-            conn.close()
-            raise typer.BadParameter(f"No hunt YAML found for id {hunt_id!r} in {hunts_dir!r}.")
-        hunts = [load_hunt(matches[0])]
-
-    results = []
-    for h in hunts:
-        result = run_hunt(conn, h)
-        verdict = evaluate_verdict(result.namespace, h.insufficient_if, h.falsifies_if)
-        results.append((h, result.namespace, verdict))
-
-    conn.close()
-
-    if output_format == HuntOutputFormat.json:
-        import json as _json
-
-        typer.echo(
-            _json.dumps(
-                [
-                    {
-                        "id": h.id,
-                        "title": h.title,
-                        "verdict": verdict,
-                        "namespace": {k: v for k, v in ns.items() if k != "rows"},
-                    }
-                    for h, ns, verdict in results
-                ],
-                indent=2,
-                default=str,
-            )
-        )
-        return
-
-    for h, ns, verdict in results:
-        typer.echo(render_hunt_result(h, ns, verdict))
-        typer.echo("")
 
 
 export_app = typer.Typer(help="Export the graph to Storm/STIX/JSON-LD (spec section 8).")
@@ -471,28 +387,7 @@ def export_jsonld(
     typer.echo(f"Wrote {out_path} ({len(doc['@graph'])} graph entries, {len(text)} bytes)")
 
 
-@app.command()
-def report(
-    hunts_dir: str = typer.Option("hunts", "--hunts-dir", help="Hunt YAML directory."),
-    corpus_dir: str = typer.Option("corpus", "--corpus-dir", help="Corpus root directory."),
-    out_dir: str = typer.Option("reports", "--out-dir", help="Directory for the rendered report."),
-) -> None:
-    """Render reports/<date>-ot-capability-assessment.md from the real graph.
-
-    Re-runs every hunt in hunts_dir against the live database and renders
-    the spec section 12 7-section report (key judgements, scope and
-    method, findings for all 10 hunts, capability handoff model,
-    visibility gaps, confidence/limitations, appendix) via Jinja2 --
-    see report/render.py.
-    """
-    settings = get_settings()
-    conn = store.get_connection(settings.db_path)
-    out_path = write_report(conn, hunts_dir=hunts_dir, corpus_dir=corpus_dir, out_dir=out_dir)
-    conn.close()
-    typer.echo(f"Wrote {out_path}")
-
-
-graph_app = typer.Typer(help="Traverse and render the graph (reuses hunt/graph_ops.py).")
+graph_app = typer.Typer(help="Traverse and render the graph (reuses model/graph_ops.py).")
 app.add_typer(graph_app, name="graph")
 
 
@@ -509,9 +404,10 @@ def graph_show(
 ) -> None:
     """Print a bounded Stage N+1 capability traversal from a Stage 1 group.
 
-    Reuses hunt/graph_ops.py's descendants_within over the same
-    projection H009 uses (group/tool/vuln/product nodes via
-    hands_off_to/uses/exploits edges).
+    Reuses model/graph_ops.py's descendants_within over a
+    group/tool/vuln/product projection via
+    hands_off_to/uses/exploits edges -- the same projection the
+    Collection Health page's rendered handoff graph uses.
     """
     settings = get_settings()
     conn = store.get_connection(settings.db_path)

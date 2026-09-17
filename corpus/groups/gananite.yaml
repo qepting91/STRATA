@@ -1,0 +1,37 @@
+# GANANITE: espionage/data-theft operator, ICS kill-chain stage 1.
+#
+# All facts sourced to Dragos's public GANANITE page (S-0019). S-0019
+# states GANANITE "has not yet shown evidence of moving into OT
+# networks or an elevated capability resembling Stage 2 actions," hence
+# stage 1. No specific country is named (only the CIS/Central Asia
+# region), so `targets.geos` is left empty. Tools are described only
+# generically ("multiple RATs", "public proof-of-concept exploits", "a
+# Telegram bot"), so no named `tools` entries are recorded.
+id: gananite
+name: GANANITE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: espionage_and_data_theft_operator
+
+aliases:
+  # S-0019 notes overlap with these three clusters but does not name
+  # which analytic firm assigned each -- no `org` is recorded for any
+  # of the three, matching the CyberAv3ngers precedent in bauxite.yaml.
+  - name: YORO TROOPER
+    src: S-0019
+  - name: TOMIRIS
+    src: S-0019
+  - name: STURGEON PHISHER
+    src: S-0019
+
+targets:
+  sectors: [oil_gas, logistics, transportation, government]
+  geos: []
+  src: S-0019
+
+techniques:
+  # T1567 (Exfiltration Over Web Service): S-0019 names a "Telegram bot
+  # for data exfiltration."
+  - attack_id: T1567
+    matrix: enterprise
+    src: S-0019

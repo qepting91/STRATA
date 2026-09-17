@@ -1,0 +1,34 @@
+# LAURIONITE: initial-access broker, ICS kill-chain stage 1.
+#
+# All facts sourced to Dragos's public LAURIONITE page (S-0023). The
+# page references exploitation of Oracle E-Business Suite
+# vulnerabilities but names no literal CVE-YYYY-NNNNN identifier
+# (checked directly on the page), so no `exploits` entry is recorded.
+# S-0023 states "no known associations" with other groups, so no
+# `aliases` or `hands_off_to` entries are recorded. No specific target
+# geography is named, so `targets.geos` is left empty.
+id: laurionite
+name: LAURIONITE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: initial_access_broker
+
+targets:
+  sectors: [aviation, automotive, manufacturing, government]
+  geos: []
+  src: S-0023
+
+tools:
+  # SlipIt: named delivery tool per S-0023. Unnamed "web shells" are
+  # also mentioned but with no specific family name, so no separate
+  # tool entry is recorded for those.
+  - name: SlipIt
+    class: loader
+    src: S-0023
+
+techniques:
+  # T1190 (Exploit Public-Facing Application): S-0023 describes
+  # exploitation of Oracle E-Business Suite iSupplier services.
+  - attack_id: T1190
+    matrix: enterprise
+    src: S-0023

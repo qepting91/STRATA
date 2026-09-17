@@ -1,0 +1,44 @@
+# DYMALLOY: ICS reconnaissance operator, ICS kill-chain stage 1.
+#
+# All facts sourced to Dragos's public DYMALLOY page (S-0018).
+id: dymalloy
+name: DYMALLOY
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: ics_reconnaissance_operator
+
+aliases:
+  # S-0018: "Some indications of relationship to Dragonfly" (Symantec
+  # naming, 2011-2014 timeframe), though Dragos treats DYMALLOY and
+  # Dragonfly as "two separate activities due to significant technical
+  # differences" -- recorded here as a noted association, not identity.
+  - name: Dragonfly
+    org: Symantec
+    src: S-0018
+
+targets:
+  sectors: [energy, oil_gas, transportation]
+  geos: [TR, US]
+  src: S-0018
+
+tools:
+  - name: GOODOR
+    class: backdoor
+    src: S-0018
+  - name: DORSHEL
+    class: backdoor
+    src: S-0018
+  - name: KARAGANY
+    class: backdoor
+    src: S-0018
+  - name: Mimikatz
+    class: credential_theft_tool
+    oss: true
+    src: S-0018
+
+techniques:
+  # T1003 (OS Credential Dumping): S-0018 names Mimikatz, a well-known
+  # open-source credential-dumping tool, as part of DYMALLOY tradecraft.
+  - attack_id: T1003
+    matrix: enterprise
+    src: S-0018

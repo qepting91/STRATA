@@ -14,13 +14,29 @@ ics_kill_chain_stage: 1
 role: initial_access_broker
 
 targets:
-  sectors: [electric_td, oil_gas, manufacturing]
+  sectors: [electric_td, oil_gas, manufacturing, water_wastewater]
   # S-0003: Ukraine (2015-2016), Germany (2017 electric sector), United
   # States (2019-2020 energy sector), and "Western Europe" generally --
   # the last of these doesn't reduce to a single ISO code, so it's noted
-  # here rather than approximated as one country.
+  # here rather than approximated as one country. water_wastewater added
+  # per S-0012: the March-July 2025 U.S. reconnaissance campaign scanned
+  # Smart HMIs/Altivar VFDs/Accuenergy meters/Sierra Wireless gateways
+  # "underpin[ning] routine industrial operations across... Water and
+  # Wastewater, Manufacturing, Energy, and Building Automation."
   geos: [UA, DE, US]
   src: S-0003
+
+aliases:
+  # UAC-0212: CERT-UA's own tracking id for a February 2025-reported
+  # multi-stage campaign against Ukrainian energy/water/heating
+  # organizations and ICS suppliers. Dragos assesses "with moderate
+  # confidence" that UAC-0212 is the same activity tracked as KAMACITE
+  # -- carried here as moderate confidence, not asserted as a settled
+  # identity the way sylvanite.yaml's UNC5221 overlap is (S-0001 states
+  # that one directly, no confidence qualifier given).
+  - name: UAC-0212
+    org: "CERT-UA (moderate-confidence overlap per Dragos)"
+    src: S-0012
 
 tools:
   - name: BlackEnergy2
@@ -57,6 +73,19 @@ techniques:
   - attack_id: T1566
     matrix: enterprise
     src: S-0003
+  # T1195 (Supply Chain Compromise): S-0012's late-2024/early-2025
+  # European campaign expanded upstream to suppliers/integrators/vendors
+  # across the ICS supply chain, not just direct operators.
+  - attack_id: T1195
+    matrix: enterprise
+    src: S-0012
+  # T1595 (Active Scanning): S-0012's March-July 2025 U.S. reconnaissance
+  # campaign systematically scanned internet-exposed Smart HMIs, Altivar
+  # VFDs, Accuenergy meters, and Sierra Wireless gateways; no successful
+  # exploitation was confirmed during this period.
+  - attack_id: T1595
+    matrix: enterprise
+    src: S-0012
 
 hands_off_to:
   # S-0003: KAMACITE "facilitated intrusion and transition of operations

@@ -21,11 +21,14 @@ aliases:
     src: S-0002
 
 targets:
-  sectors: [electric_power_td, emergency_services, telecom, defense_industrial_base, satellite_services]
+  sectors: [electric_power_td, emergency_services, telecom, defense_industrial_base, satellite_services, oil_gas]
   # US is the primary focus (Guam called out specifically in S-0002);
   # additional activity reported in Africa and Southeast Asia, which
   # don't reduce cleanly to ISO country codes at this level of public
   # detail, so only the specifically-named US/Guam geos are listed here.
+  # S-0012 adds oil_gas: 2025 activity against Sierra Wireless AirLink
+  # RV50/RV55 gateways "primarily targeted U.S. midstream pipeline
+  # operations."
   geos: [US, GU]
   src: S-0002
 
@@ -37,6 +40,18 @@ tools:
     class: tunnel
     oss: true
     src: S-0002
+  # JDY botnet: per S-0012, "VOLTZITE-linked activity leveraging the JDY
+  # botnet" for systematic reconnaissance of public-facing VPN
+  # appliances (F5 BIG-IP, Palo Alto GlobalProtect, Citrix) across
+  # Energy/Oil and Gas/Defense sectors. Deliberately NOT adding
+  # CVE-2025-0994 (Trimble Cityworks) as an exploit here: S-0012 states
+  # Dragos's overlap finding between VOLTZITE and that operation
+  # (attributed primarily to a separate cluster, TAT25-09) is
+  # explicitly "low confidence" -- citing it as a VOLTZITE exploit would
+  # overclaim a low-confidence overlap as a direct attribution.
+  - name: JDY botnet
+    class: botnet
+    src: S-0012
 
 techniques:
   # T1090 (Proxy): matches the reported use of Fast Reverse Proxy for C2.
@@ -48,3 +63,9 @@ techniques:
   - attack_id: T1021
     matrix: enterprise
     src: S-0002
+  # T1595 (Active Scanning): S-0012's JDY-botnet-driven reconnaissance
+  # of public-facing VPN appliance IP ranges, described as pre-staging
+  # (moderate confidence) rather than confirmed exploitation.
+  - attack_id: T1595
+    matrix: enterprise
+    src: S-0012

@@ -1,0 +1,42 @@
+# ALLANITE: ICS reconnaissance operator, ICS kill-chain stage 1.
+#
+# All facts sourced to Dragos's public ALLANITE page (S-0014). Dragos
+# describes the group as conducting deliberately "malware-less"
+# operations using legitimate/available OS tooling, so this file has no
+# `tools` entries -- that is a documented characteristic, not a gap.
+id: allanite
+name: ALLANITE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: ics_reconnaissance_operator
+
+aliases:
+  # DHS publicly used "Palmetto Fusion" for overlapping/associated
+  # activity; Dragos notes this association without independently
+  # corroborating any nation-state attribution tied to that name.
+  - name: Palmetto Fusion
+    org: DHS
+    src: S-0014
+  # Symantec's "Dragonfly" naming is associated with related activity
+  # per S-0014; Dragos separately associates Dragonfly with DYMALLOY,
+  # so this is recorded as an overlap/association, not a 1:1 identity.
+  - name: Dragonfly
+    org: Symantec
+    src: S-0014
+
+targets:
+  sectors: [electric]
+  geos: [US, GB]
+  src: S-0014
+
+techniques:
+  # T1566 (Phishing): S-0014 states ALLANITE "uses email phishing
+  # campaigns ... to steal credentials and gain access."
+  - attack_id: T1566
+    matrix: enterprise
+    src: S-0014
+  # T1189 (Drive-by Compromise): S-0014 states ALLANITE uses
+  # "compromised websites called watering holes" for initial access.
+  - attack_id: T1189
+    matrix: enterprise
+    src: S-0014

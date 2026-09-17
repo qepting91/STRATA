@@ -1,0 +1,72 @@
+# PYROXENE hunt hypothesis worksheet -- reference example, not graph data.
+#
+# Grounded in PYROXENE's real corpus profile (corpus/groups/pyroxene.yaml,
+# cited S-0009, including this session's real BLUERABBIT/Tortoiseshell
+# refresh) and PARISITE's real corpus profile (S-0011, for the real
+# handoff relationship).
+group_id: pyroxene
+hypothesis_statement: >
+  PYROXENE is leveraging PARISITE-provided initial access, or its own
+  recruitment-themed social engineering, to compromise third-party or
+  supplier accounts, then using that foothold to reach IT/OT boundary
+  systems.
+src: S-0009
+pir_reference: >
+  Illustrative PIR (not a real stakeholder requirement -- shown to
+  demonstrate the framework's structure): "Do any of our contractors or
+  suppliers with privileged access have security postures we cannot
+  independently verify?"
+
+cmf_notes:
+  - hunt_step: >
+      Confirm whether PARISITE has a real cited handoff to PYROXENE and
+      what access PARISITE is documented to establish first.
+    strata_coverage: >
+      MODELED -- STRATA's corpus has a real parisite -> pyroxene
+      hands_off_to edge (confidence=moderate, since Dragos's own
+      language is "collaborated with," softer than SYLVANITE->VOLTZITE's
+      "directly observed") -- see the Threat Groups page for PARISITE.
+    src: S-0011
+
+  - hunt_step: >
+      Audit third-party/contractor account access patterns to jump
+      servers and historian databases for anomalous windows or source
+      IPs.
+    strata_coverage: >
+      NOT MODELED -- STRATA has no identity or access-log telemetry of
+      any kind. This is real IAM/PAM data an analyst brings from their
+      own environment.
+
+  - hunt_step: >
+      Check whether MINIBIKE or BLUERABBIT (PYROXENE's two cited tools)
+      match anything in your own malware/EDR alerting.
+    strata_coverage: >
+      PARTIALLY MODELED -- both are real, corpus-cited PYROXENE tools
+      (BLUERABBIT confirmed live this session, re-checked directly
+      against S-0009's page). STRATA gives you the names to search for,
+      not detection signatures.
+    src: S-0009
+
+  - hunt_step: >
+      Review recruitment-themed or spoofed-domain phishing indicators
+      targeting staff with OT-adjacent access.
+    strata_coverage: >
+      NOT MODELED -- STRATA collects no email/phishing telemetry, and
+      this specific technique isn't even a row in config/telemetry_
+      matrix.yaml yet -- worth adding in a future visibility-gaps pass.
+
+outcome_criteria:
+  proved: >
+    A confirmed third-party account compromise with lateral movement
+    toward an OT-adjacent jump host or historian, or a MINIBIKE/BLUERABBIT
+    artifact identified on any host -- escalate to IR, and treat the
+    BLUERABBIT (wiper) possibility as high urgency given its destructive
+    intent.
+  disproved: >
+    No qualifying third-party account anomalies and no matching
+    MINIBIKE/BLUERABBIT artifacts across the audited window.
+  inconclusive: >
+    Third-party identity/access logs and phishing-detection telemetry
+    are the two real dependencies here, and STRATA models neither --
+    record this as a collection gap if this data doesn't exist in your
+    environment.

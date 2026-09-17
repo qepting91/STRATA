@@ -29,10 +29,15 @@ latest = health["latest_fetches"]
 if latest:
     st.dataframe(
         pd.DataFrame(
-            [{"source": k, "latest_fetched_at": v} for k, v in latest.items()]
+            [{"source": k, "latest_fetched_at (UTC)": v} for k, v in latest.items()]
         ),
         use_container_width=True,
         hide_index=True,
+    )
+    st.caption(
+        "Every value above is UTC. Rows marked \"(date-only)\" come from "
+        "corpus/citations.yaml's `retrieved` field, which records a date "
+        "only (no time-of-day) -- not a display truncation."
     )
 else:
     st.warning("No source rows found -- run `strata collect` first.")

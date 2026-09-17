@@ -34,9 +34,11 @@ import pandas as pd
 import streamlit as st
 import yaml
 
-from strata.hunt.runner import build_projection, load_all_hunts, run_hunt
-from strata.hunt.verdicts import evaluate_verdict
 from strata.model import store
+from strata.model.graph_ops import build_projection
+from strata.normalize.hunt_hypothesis_loader import HuntHypothesisLoadError
+from strata.normalize.hunt_hypothesis_loader import load_hunt_hypotheses as _load_hunt_hypotheses
+from strata.normalize.hunt_hypothesis_models import HuntHypothesis
 from strata.normalize.models import GroupCorpusEntry
 from strata.settings import get_settings
 
@@ -85,45 +87,6 @@ def _connect() -> sqlite3.Connection:
 
 
 @st.cache_data(ttl=300)
-def load_hunt_results() -> pd.DataFrame:
-    """Run every hunts/*.yaml against the real graph and return a verdict table.
-
-    Hunts are never persisted -- they are computed fresh each call (cached
-    for 5 minutes at the Streamlit layer only). Returns one row per hunt:
-    id, title, verdict, hypothesis, rationale, null_hypothesis, method,
-    falsifies_if, insufficient_if, telemetry_gap, and a JSON-encoded
-    namespace (the hunt's own computed result variables) for the
-    click-through detail view.
-    """
-    hunts = load_all_hunts("hunts")
-    conn = _connect()
-    try:
-        records = []
-        for h in hunts:
-            result = run_hunt(conn, h)
-            verdict = evaluate_verdict(result.namespace, h.insufficient_if, h.falsifies_if)
-            namespace = {k: v for k, v in result.namespace.items() if k != "rows"}
-            records.append(
-                {
-                    "id": h.id,
-                    "title": h.title,
-                    "verdict": verdict,
-                    "hypothesis": h.hypothesis.strip(),
-                    "rationale": h.rationale.strip(),
-                    "null_hypothesis": h.null_hypothesis.strip(),
-                    "method": h.method,
-                    "falsifies_if": h.falsifies_if,
-                    "insufficient_if": h.insufficient_if,
-                    "telemetry_gap": h.telemetry_gap.strip(),
-                    "namespace_json": json.dumps(namespace, default=str),
-                }
-            )
-        return pd.DataFrame.from_records(records)
-    finally:
-        conn.close()
-
-
-@st.cache_data(ttl=300)
 def load_groups() -> pd.DataFrame:
     """Return every threat-group node as a DataFrame (id, label, attrs)."""
     conn = _connect()
@@ -156,6 +119,98 @@ def load_group_detail(group_id: str) -> dict:
 
 
 @st.cache_data(ttl=300)
+def load_technique_index() -> dict[str, dict]:
+    """Return every ATT&CK technique node's attrs, keyed by id.
+
+    Used by the Threat Groups page to show a group's cited technique as
+    its real MITRE name/description/URL instead of a bare ID -- populated
+    by `collect/attack.py`, empty (not an error) if that collector has
+    never run.
+    """
+    conn = _connect()
+    try:
+        techniques = store.get_all_technique_nodes(conn)
+        return {t["id"]: (t["attrs"] or {}) for t in techniques}
+    finally:
+        conn.close()
+
+
+@st.cache_data(ttl=300)
+def load_tool_index() -> dict[str, dict]:
+    """Return every tool node's attrs, keyed by id.
+
+    Used by the Threat Groups page to show a real MITRE ATT&CK software
+    cross-reference link next to a group's cited tool, where
+    `enrich/attack_software.py` found a real (exact name/alias) match --
+    empty (not an error) if that enrichment pass has never run.
+    """
+    conn = _connect()
+    try:
+        tools = store.get_all_tool_nodes(conn)
+        return {t["id"]: (t["attrs"] or {}) for t in tools}
+    finally:
+        conn.close()
+
+
+def get_hunt_hypotheses_dir() -> str:
+    """Resolve the hunt-hypotheses directory, overridable for tests.
+
+    Reads STRATA_HUNT_HYPOTHESES_DIR (set by test_ui_pages.py to point
+    at the synthetic tests/fixtures/hunt_hypotheses fixture), else falls
+    back to the real corpus/hunt_hypotheses -- same override pattern as
+    get_db_path() above.
+    """
+    return os.environ.get("STRATA_HUNT_HYPOTHESES_DIR", "corpus/hunt_hypotheses")
+
+
+def get_hunt_hypotheses_citations_path() -> str:
+    """Resolve the citations registry path paired with the hunt-hypotheses dir.
+
+    Reads STRATA_HUNT_HYPOTHESES_CITATIONS (set alongside
+    STRATA_HUNT_HYPOTHESES_DIR in tests, since the synthetic fixture's
+    S-TEST-1 id only exists in its own small citations.yaml, not the
+    real corpus/citations.yaml).
+    """
+    return os.environ.get("STRATA_HUNT_HYPOTHESES_CITATIONS", "corpus/citations.yaml")
+
+
+@st.cache_data(ttl=300)
+def load_hunt_hypotheses(
+    hunt_hypotheses_dir: str | None = None,
+    citations_path: str | None = None,
+) -> dict[str, HuntHypothesis]:
+    """Return every validated hunt-hypothesis YAML file, keyed by group_id.
+
+    Not a database read -- these are static, hand-authored reference
+    files (see normalize/hunt_hypothesis_loader.py), read directly like
+    load_telemetry_matrix/load_citations above. Returns {} if the
+    directory doesn't exist yet or holds no files (real state until the
+    3 example groups' files are authored), rather than raising -- pages
+    9's "no example yet" st.info handles that case, not a crash here.
+
+    Args:
+        hunt_hypotheses_dir: Defaults to get_hunt_hypotheses_dir()
+            (env-overridable, for tests) when not given explicitly.
+        citations_path: Defaults to get_hunt_hypotheses_citations_path()
+            when not given explicitly.
+    """
+    if hunt_hypotheses_dir is None:
+        hunt_hypotheses_dir = get_hunt_hypotheses_dir()
+    if citations_path is None:
+        citations_path = get_hunt_hypotheses_citations_path()
+    try:
+        return _load_hunt_hypotheses(
+            hunt_hypotheses_dir=hunt_hypotheses_dir, citations_path=citations_path
+        )
+    except HuntHypothesisLoadError:
+        # A malformed hunt-hypothesis file is itself worth surfacing, but
+        # per this module's own "don't crash the page" convention
+        # (see _corpus_thin_citation_groups), fail soft here rather than
+        # taking down the whole Streamlit page render.
+        return {}
+
+
+@st.cache_data(ttl=300)
 def load_timeline_metrics() -> pd.DataFrame:
     """Return every timeline-derived metric_observation row as a DataFrame.
 
@@ -179,13 +234,27 @@ def load_timeline_metrics() -> pd.DataFrame:
         conn.close()
 
 
+def _truncate(text: str | None, max_len: int = 320) -> str | None:
+    """Truncate free text to max_len chars with an ellipsis, or return None unchanged."""
+    if not text:
+        return None
+    text = text.strip()
+    if len(text) <= max_len:
+        return text
+    return text[:max_len].rsplit(" ", 1)[0] + "..."
+
+
 @st.cache_data(ttl=300)
 def load_protocol_edges() -> pd.DataFrame:
     """Return every real vuln -[:involves]-> protocol edge.
 
     Columns: cve, protocol, evidence (the edge's note -- which rule
     fired), source_id, year (parsed from nvd_published, for a volume-
-    over-time view).
+    over-time view), description_excerpt (truncated NVD attrs.description),
+    csaf_excerpt (truncated attrs.csaf_product_text) -- the real context
+    a reader needs to see *why* the classifier matched this CVE, not just
+    that it did (see enrich/protocol.py's classify(), which runs over
+    exactly these two attrs).
     """
     conn = _connect()
     try:
@@ -203,12 +272,16 @@ def load_protocol_edges() -> pd.DataFrame:
         records = []
         for row in rows:
             year = None
+            description = None
+            csaf_text = None
             if row["vuln_attrs"]:
                 try:
                     attrs = json.loads(row["vuln_attrs"])
                     published = attrs.get("nvd_published")
                     if published:
                         year = int(str(published)[:4])
+                    description = attrs.get("description")
+                    csaf_text = attrs.get("csaf_product_text")
                 except (json.JSONDecodeError, ValueError, TypeError):
                     year = None
             records.append(
@@ -218,6 +291,8 @@ def load_protocol_edges() -> pd.DataFrame:
                     "evidence": row["evidence"],
                     "source_id": row["source_id"],
                     "year": year,
+                    "description_excerpt": _truncate(description),
+                    "csaf_excerpt": _truncate(csaf_text),
                 }
             )
         return pd.DataFrame.from_records(records)
@@ -298,6 +373,107 @@ def load_source(source_id: str) -> dict | None:
         conn.close()
 
 
+def format_citation_label(source_id: str | None) -> str:
+    """Return a short, plain-text "Publisher (date)" citation label.
+
+    Same lookup order as components/source_footer.py's render_source_footer
+    (corpus/citations.yaml first, then the source table) but returns a
+    short plain string with no markdown link -- for compact table cells
+    (e.g. Threat Groups' exploits/tools tables) where a full clickable
+    citation footer per row would recreate the very clutter this page
+    was redesigned to remove. Not itself cached -- it only calls the two
+    already-cached loaders above, so a repeat call within the same
+    render is cheap.
+    """
+    if not source_id:
+        return "(none recorded)"
+    citations = load_citations()
+    citation = citations.get(source_id)
+    if citation is not None:
+        publisher = citation.get("publisher", "unknown publisher")
+        retrieved = citation.get("retrieved", "unknown date")
+        return f"{publisher} (retrieved {retrieved})"
+    source_row = load_source(source_id)
+    if source_row is not None:
+        name = source_row.get("name", "unknown source")
+        fetched_at = source_row.get("fetched_at", "unknown date")
+        return f"{name} (fetched {fetched_at})"
+    return f"{source_id} (not found in citations.yaml or source table)"
+
+
+@st.cache_data(ttl=300)
+def load_purdue_cve_mass() -> pd.DataFrame:
+    """Return real, live CVE-mass-by-Purdue-level counts.
+
+    Joins distinct CVEs with an ``affects`` edge to a product classified
+    at a given ``purdue_level`` -- generalized to every distinct level
+    actually present in config/purdue_map.yaml's classified products, not
+    hardcoded to just levels 1 and 3.5, so the Analytical Frameworks
+    page's chart reflects however many real levels are mapped.
+    """
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            """
+            SELECT json_extract(p.attrs, '$.purdue_level') AS purdue_level,
+                   COUNT(DISTINCT affects.src_id) AS cve_mass
+            FROM edge AS affects
+            JOIN node AS p ON p.id = affects.dst_id AND p.type = 'product'
+            WHERE affects.type = 'affects'
+              AND json_extract(p.attrs, '$.purdue_level') IS NOT NULL
+            GROUP BY purdue_level
+            ORDER BY purdue_level
+            """
+        ).fetchall()
+        return pd.DataFrame.from_records([dict(r) for r in rows])
+    finally:
+        conn.close()
+
+
+@st.cache_data(ttl=300)
+def load_pyramid_of_pain_counts() -> dict:
+    """Return real counts of STRATA's own collected data mapped onto David
+    Bianco's Pyramid of Pain's 6 layers.
+
+    Hash Values / IP Addresses / Domain Names are hardcoded to 0 -- not
+    because a query returned 0 rows, but because this project has no
+    table that could ever hold one (see SECURITY.md's no-malware-sample-
+    handling policy: STRATA never ingests or stores IOC-level hash/IP/
+    domain data by design). Network/Host Artifacts, Tools, and TTPs are
+    real live queries.
+    """
+    conn = _connect()
+    try:
+        n_signal_refs = conn.execute(
+            "SELECT COUNT(*) AS n FROM signal WHERE ref IS NOT NULL AND ref != ''"
+        ).fetchone()["n"]
+        n_tools = conn.execute(
+            "SELECT COUNT(*) AS n FROM node WHERE type = 'tool'"
+        ).fetchone()["n"]
+        n_uses_edges = conn.execute(
+            "SELECT COUNT(*) AS n FROM edge WHERE type = 'uses'"
+        ).fetchone()["n"]
+        n_techniques = conn.execute(
+            "SELECT COUNT(*) AS n FROM node WHERE type = 'technique'"
+        ).fetchone()["n"]
+        n_implements_edges = conn.execute(
+            "SELECT COUNT(*) AS n FROM edge WHERE type = 'implements'"
+        ).fetchone()["n"]
+    finally:
+        conn.close()
+
+    return {
+        "hash_values": 0,
+        "ip_addresses": 0,
+        "domain_names": 0,
+        "network_host_artifacts": n_signal_refs,
+        "n_tools": n_tools,
+        "n_uses_edges": n_uses_edges,
+        "n_techniques": n_techniques,
+        "n_implements_edges": n_implements_edges,
+    }
+
+
 @st.cache_data(ttl=300)
 def load_collection_health() -> dict:
     """Return per-source collection health: counts, last-fetch times, and
@@ -319,7 +495,7 @@ def load_collection_health() -> dict:
         signal_counts = store.count_signals_by_source(conn)
         metric_counts = store.count_metric_observations_by_name(conn)
         source_count = store.count_sources(conn)
-        latest_fetches = store.latest_fetch_times(conn)
+        latest_fetches = _normalize_fetch_times(store.latest_fetch_times(conn))
     finally:
         conn.close()
 
@@ -334,34 +510,85 @@ def load_collection_health() -> dict:
         "latest_fetches": latest_fetches,
         "thin_citation_groups": thin_groups,
         "known_gaps": [
-            "No vendor-PSIRT collector was ever built (deferred every week) -- "
-            "vendor-specific patch-latency data (needed by H010) does not exist.",
-            "CSAF's collector does not extract product-tree text -- the "
-            "protocol classifier runs over CVE descriptions only, not the "
-            "spec's other stated input.",
-            "disclosure_to_group_use / t_group_observed is not computed -- "
-            "the corpus format has no first_seen date on a group's exploits "
-            "entries.",
+            "Only 2 of 7 named vendor-PSIRT collectors are built (Siemens "
+            "ProductCERT, Schneider Electric CPCERT) -- Hitachi/Cisco/Palo "
+            "Alto/Fortinet/Ivanti remain uncollected. The real sample from "
+            "the 2 built collectors is thin (6 Siemens + 1 Schneider "
+            "computable latency points) -- too few to trust a cross-vendor "
+            "patch-latency comparison.",
+            "The protocol classifier now reads CSAF advisory product-tree "
+            "text as well as NVD descriptions, but this only added 1 new "
+            "match -- the corpus's real protocol-CVE base rate is genuinely "
+            "low (3 distinct protocol-involving CVEs total).",
+            "disclosure_to_group_use / t_group_observed is now computed, but "
+            "only for SYLVANITE's 5 corpus exploits entries -- the other 25 "
+            "of the corpus's 26 tracked groups' public sourcing never named "
+            "a specific CVE to attach a first_seen date to in the first "
+            "place.",
         ],
     }
 
 
 @st.cache_data(ttl=300)
 def load_handoff_projection() -> nx.DiGraph:
-    """Return the group/tool/vuln/product handoff-model NetworkX projection.
+    """Return the group/tool/vuln/product handoff-model NetworkX projection,
+    pruned to only nodes actually connected by a handoff-model edge.
 
-    Reuses hunt.runner.build_projection over the same node/edge type
-    filter H009's traversal and `strata graph show` use -- the Collection
-    Health page's rendered graph shows exactly the same capability model
-    the hunt board reasons over, not a bespoke second query.
+    Reuses `model.graph_ops.build_projection` -- the same node/edge type
+    filter `strata graph show` uses -- so the Collection Health page's
+    rendered graph shows exactly the same capability model, not a
+    bespoke second query.
+
+    build_projection() adds every node of the declared types
+    unconditionally (by design: a real edge must never be silently
+    dropped just because one endpoint's type wasn't in the filter list)
+    -- with node_types including "product" (2,859 nodes) and "vuln"
+    (1,790), that's ~4,600+ mostly-isolated nodes with no
+    hands_off_to/uses/exploits edge at all. That's fine for a traversal
+    (isolated nodes never get visited), but pyvis renders and
+    physics-simulates every node regardless of degree -- found live
+    (froze the browser tab rendering ~4,675 nodes). Pruning isolates
+    here, at the display boundary, keeps build_projection() itself
+    unchanged for `strata graph show` correctness while fixing the
+    actual display bug at its source.
     """
     conn = _connect()
     try:
-        return build_projection(
+        graph = build_projection(
             conn, ["group", "tool", "vuln", "product"], ["hands_off_to", "uses", "exploits"]
         )
+        graph.remove_nodes_from(list(nx.isolates(graph)))
+        return graph
     finally:
         conn.close()
+
+
+def _normalize_fetch_times(latest_fetches: dict[str, str]) -> dict[str, str]:
+    """Make every ``source.name -> latest fetched_at`` value unambiguously UTC.
+
+    Every collector-written source row already stores a full
+    ``YYYY-MM-DDTHH:MM:SS+00:00``-shaped timestamp (see e.g.
+    collect/cisa_kev.py's ``datetime.now(UTC).isoformat()`` calls) --
+    that offset is what makes it unambiguous. The one exception is the
+    ``corpus`` source (normalize/corpus.py's ``_resolve_source_id``),
+    whose ``fetched_at`` is ``citation.get("retrieved") or fetched_at``:
+    every corpus/citations.yaml entry's ``retrieved`` field is a bare
+    ``"YYYY-MM-DD"`` string (confirmed live: e.g. ``"2026-09-17"``, no
+    time-of-day, no offset) -- genuinely date-only at the source, not a
+    display truncation. Rendered next to every other row's full
+    precision UTC timestamp, a bare date with no offset looks
+    inconsistent and its timezone is ambiguous to a reader. Normalize it
+    to an explicit, honest ``<date>T00:00:00+00:00 (date-only)`` label
+    instead of leaving it looking like an accidentally-truncated
+    timestamp.
+    """
+    normalized: dict[str, str] = {}
+    for name, value in latest_fetches.items():
+        if value and len(value) == len("YYYY-MM-DD") and value[4] == "-" and value[7] == "-":
+            normalized[name] = f"{value}T00:00:00+00:00 (date-only)"
+        else:
+            normalized[name] = value
+    return normalized
 
 
 def _corpus_thin_citation_groups(corpus_dir: str = "corpus") -> list[dict]:

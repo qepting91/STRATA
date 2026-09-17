@@ -183,14 +183,14 @@ authenticated `GITHUB_TOKEN` to raise the cap to 5,000/hour.
   use the same discovery shape).
 - **License / terms / what it gives you / scope:** same as Siemens above.
 
-**Real, honest result (live collection, this session):** only 6 of 30
-fetched Siemens advisories and 1 of 30 fetched Schneider advisories had a
-CVE with an NVD/KEV date already published (most fetched advisories are
-for very recent 2026 CVEs NVD/KEV haven't caught up on yet) — i.e. a
-computable patch-latency data point. H010's `min_n_per_vendor >= 3` gate
-(in `hunt/methods.py`) correctly keeps the hunt INSUFFICIENT on this thin
-a sample rather than reporting a comparison built on a single Schneider
-data point.
+**Real, honest result (live collection):** only 6 of 30 fetched Siemens
+advisories and 1 of 30 fetched Schneider advisories had a CVE with an
+NVD/KEV date already published (most fetched advisories are for very
+recent 2026 CVEs NVD/KEV haven't caught up on yet) — i.e. a computable
+patch-latency data point. Two vendors with 6 and 1 usable data points
+respectively is too thin a sample to support a real cross-vendor
+patch-latency comparison — reported honestly here rather than glossed
+over on Collection Health.
 
 ## Deliberately not collected
 

@@ -126,3 +126,223 @@ S-0011:
     PARISITE identity, its initial-access/enablement role (no ICS-native
     disruptive capability of its own), targeted sectors/geos, and its
     handoffs enabling both MAGNALLIUM and PYROXENE operations.
+
+# S-0012's `url` is intentionally null -- unlike every other citation in
+# this file, this document was supplied locally by the user (the PDF at
+# docs/Dragos-2026-OT-Cybersecurity-Report-A-Year-in-Review.pdf), not
+# fetched over HTTPS by any collector, so there is no retrieval URL to
+# cite the way a web-sourced citation has one. normalize/corpus.py's
+# citation loader (_resolve_source_id) passes `citation.get("url")`
+# straight through to store.insert_source, whose `url` parameter is
+# already `str | None` (the `source` table's own `url` column is
+# nullable per schema.sql) -- a missing/null url here does not break
+# corpus loading.
+S-0012:
+  publisher: Dragos
+  url: null
+  retrieved: "2026-09-17"
+  supports: >
+    9th Annual Dragos OT/ICS Cybersecurity Year in Review (Feb 2026).
+    Corrects AZURITE and PYROXENE's ICS Kill Chain stage designation
+    (both explicitly Stage 2 per the report's own "About" sections, not
+    Stage 1 as originally corpus-authored from a thinner web-search
+    pass), and confirms Godzilla webshell used by both SYLVANITE (p.27)
+    and AZURITE (p.11), and frp (Fast Reverse Proxy) used by both
+    SYLVANITE (p.26) and VOLTZITE (already cited to S-0002) -- real,
+    primary-source, cross-group tool overlap.
+
+# S-0013: added after live research against dragos.com/threat-groups
+# (the full 26-group tracked list, matching the 2026 report's own
+# count) confirmed MAGNALLIUM is a real, independently-tracked Dragos
+# group with its own page -- not just a name that happens to appear in
+# parisite.yaml's hands_off_to. Only MAGNALLIUM was upgraded from stub
+# to full profile this pass; the other ~18 tracked groups not yet in
+# this corpus at the time (ALLANITE, BENTONITE, CHERNOVITE, CHRYSENE,
+# DYMALLOY, GANANITE, GRAPHITE, HEXANE, KOSTOVITE, LAURIONITE,
+# PETROVITE, RASPITE, STIBNITE, TALONITE, VANADINITE, WASSONITE,
+# XENOTIME) were left as a documented, deliberate gap -- since closed
+# (see S-0014 through S-0030 below): the corpus now covers all 26
+# Dragos-tracked groups.
+S-0013:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/magnallium
+  retrieved: "2026-09-17"
+  supports: >
+    MAGNALLIUM identity, role as a reconnaissance/espionage group
+    lacking ICS-specific destructive capability, targeted sectors/geos,
+    tooling (StoneDrill, TURNEDUP, PowerShell-based post-exploitation
+    tooling), and the publicly stated overlap with APT33 (FireEye
+    naming).
+
+# Week 4 additions (verified live via WebFetch, 2026-09-17): the
+# remaining 17 groups from Dragos's full 26-group public tracked list
+# (dragos.com/threat-groups), each cited to its own Dragos public
+# threat-group page. None of these 17 pages names a specific CVE
+# identifier (each page's own text was independently checked for a
+# literal "CVE-YYYY-NNNNN" string; none matched), so no independent
+# vendor/press citation is added for this batch, and no group file
+# below carries an `exploits` list.
+
+S-0014:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/allanite/
+  retrieved: "2026-09-17"
+  supports: >
+    ALLANITE identity, Stage 1 malware-less watering-hole/phishing
+    operations against electric utilities in the US/UK, and publicly
+    noted associations with DHS's "Palmetto Fusion" designation and
+    Symantec's "Dragonfly" activity.
+
+S-0015:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/bentonite/
+  retrieved: "2026-09-17"
+  supports: >
+    BENTONITE identity, living-off-the-land tradecraft against
+    maritime oil-and-gas, government, and manufacturing targets, and
+    its association with Microsoft's "PHOSPHORUS" designation.
+
+S-0016:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/chernovite/
+  retrieved: "2026-09-17"
+  supports: >
+    CHERNOVITE identity, Stage 2 development of the PIPEDREAM ICS
+    malware toolkit targeting Schneider Electric/Omron PLCs and
+    CoDeSys/OPC-UA/Modbus environments, and targeted sectors.
+
+S-0017:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/chrysene/
+  retrieved: "2026-09-17"
+  supports: >
+    CHRYSENE identity, its role as an initial-access team that passes
+    victims to other groups, targeted sectors/geos, and associations
+    with Symantec's "Greenbug" and Palo Alto Networks' "OilRig"
+    designations.
+
+S-0018:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/dymalloy/
+  retrieved: "2026-09-17"
+  supports: >
+    DYMALLOY identity, Stage 1 deep ICS-environment information
+    gathering, targeted sectors/geos, tooling (GOODOR, DORSHEL,
+    KARAGANY, Mimikatz), and noted indications of relationship to
+    Symantec's "Dragonfly" activity.
+
+S-0019:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/gananite/
+  retrieved: "2026-09-17"
+  supports: >
+    GANANITE identity, Stage 1 espionage/data-theft targeting of
+    oil-and-gas, logistics, transportation, and government entities in
+    the CIS/Central Asia region, and noted overlaps with YORO TROOPER,
+    TOMIRIS, and STURGEON PHISHER activity.
+
+S-0020:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/graphite/
+  retrieved: "2026-09-17"
+  supports: >
+    GRAPHITE identity, Stage 1 spearphishing/credential-theft
+    reconnaissance against energy and logistics targets in Ukraine and
+    West Asia, tooling (OCEANMAP, HEADLACE, MASEPIE, STEELHOOK), and
+    the noted overlap with APT28.
+
+S-0021:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/hexane/
+  retrieved: "2026-09-17"
+  supports: >
+    HEXANE identity, its use of third-party telecom-provider network
+    access against oil-and-gas and telecommunications targets, and
+    Dragos's own assessment that it is distinct from, though similar
+    to, MAGNALLIUM and CHRYSENE.
+
+S-0022:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/kostovite/
+  retrieved: "2026-09-17"
+  supports: >
+    KOSTOVITE identity, Stage 2 confirmed OT network access via a
+    zero-day in Ivanti Connect Secure, renewable-energy targeting, and
+    its significant overlap with Mandiant's "UNC2630" designation.
+
+S-0023:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/laurionite/
+  retrieved: "2026-09-17"
+  supports: >
+    LAURIONITE identity, Stage 1 exploitation of Oracle E-Business
+    Suite against aviation/automotive/manufacturing/government targets,
+    and its SlipIt delivery tool.
+
+S-0024:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/petrovite/
+  retrieved: "2026-09-17"
+  supports: >
+    PETROVITE identity, Stage 1 reconnaissance/collection against
+    mining and energy targets in Kazakhstan/Central Asia, its ZEBROCY
+    tooling, and noted overlaps with KAMACITE and FANCY BEAR activity.
+
+S-0025:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/raspite/
+  retrieved: "2026-09-17"
+  supports: >
+    RASPITE identity, Stage 1 access operations against US electric
+    utilities via SMB-forced-authentication and watering-hole
+    tradecraft, and its significant overlap with Symantec's
+    "LEAFMINER" designation.
+
+S-0026:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/stibnite/
+  retrieved: "2026-09-17"
+  supports: >
+    STIBNITE identity, Stage 1 operations against Azerbaijani wind-
+    generation and government targets via spearphishing, and its
+    PoetRAT/LaZagne tooling.
+
+S-0027:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/talonite/
+  retrieved: "2026-09-17"
+  supports: >
+    TALONITE identity, Stage 1 spearphishing-based initial-access
+    operations against US/Japan/Taiwan electric utilities, its
+    LookBack/FlowCloud tooling, and the noted (unconfirmed) behavioral
+    overlap with APT10.
+
+S-0028:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/vanadinite/
+  retrieved: "2026-09-17"
+  supports: >
+    VANADINITE identity, Stage 1 initial-access campaigns exploiting
+    external-facing network/security devices, targeted sectors,
+    Metasploit/Cobalt Strike tooling, and its considerable overlap with
+    Microsoft's "LEAD" designation and the Winnti/APT41 activity.
+
+S-0029:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/wassonite/
+  retrieved: "2026-09-17"
+  supports: >
+    WASSONITE identity, Stage 1 access operations against electric,
+    nuclear, manufacturing, and space-research targets in India/Japan/
+    South Korea, its DTrack/Mimikatz tooling, and third-party firms'
+    association of DTrack with the Lazarus Group.
+
+S-0030:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/xenotime/
+  retrieved: "2026-09-17"
+  supports: >
+    XENOTIME identity, Stage 2 development and deployment of the
+    TRISIS/TRITON safety-instrumented-system malware against Schneider
+    Electric Triconex targets in oil & gas and electric sectors, and
+    its PsExec/Windows-native post-exploitation tooling.

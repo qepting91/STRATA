@@ -67,6 +67,22 @@ tools:
   - name: ZIPLINE
     class: backdoor
     src: S-0004
+  # S-0012 (Dragos 2026 Year in Review): Godzilla webshell (p.27) and frp
+  # (p.26) are each named directly as SYLVANITE tooling. Both slug to the
+  # same tool node another group's file already creates (tool-godzilla
+  # via azurite.yaml, tool-frp via voltzite.yaml) -- normalize/corpus.py's
+  # tool-id slugging is `f"tool-{tool.name.lower().replace(' ', '_')}"`,
+  # so "Godzilla" and "frp" here produce identical ids regardless of
+  # which group's file the loader processes first, giving H004's
+  # tool/uses-edge counting a real, citable, cross-group tool overlap
+  # (see hunts/H004-webshell-distinctiveness.yaml).
+  - name: Godzilla
+    class: webshell
+    src: S-0012
+  - name: frp
+    class: tunnel
+    oss: true
+    src: S-0012
 
 techniques:
   # T1190 (Exploit Public-Facing Application): SYLVANITE's core mode of

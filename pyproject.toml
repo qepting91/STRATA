@@ -1,7 +1,7 @@
 [project]
 name = "strata"
 version = "0.1.0"
-description = "STRATA — local-only OT/ICS threat-capability tracking pipeline (Week 1 spine)"
+description = "STRATA — local-only OT/ICS threat-capability tracking pipeline"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -10,13 +10,10 @@ dependencies = [
     "pydantic-settings>=2.3",
     "typer>=0.12",
     "pyyaml>=6.0",
-    # Week 4 additions (hunt framework + export layer):
-    "networkx>=3.3",   # graph-method hunts, H009's traversal, static handoff render
-    "jinja2>=3.1",     # report templates (follow-up task)
-    "simpleeval>=0.9",  # restricted falsifies_if/insufficient_if evaluation -- never eval()
+    "networkx>=3.3",   # graph traversal (strata graph show, handoff-model render)
     "stix2>=3.0",      # STIX 2.1 bundle export
-    # Streamlit UI deps (this task): pure-Python, local-only, no CDN/node
-    # toolchain -- keeps the whole project one dependency tree.
+    # Streamlit UI deps: pure-Python, local-only, no CDN/node toolchain --
+    # keeps the whole project one dependency tree.
     "streamlit>=1.38",
     "pandas>=2.2",
     "pyvis>=0.3.2",

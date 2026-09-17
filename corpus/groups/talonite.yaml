@@ -1,0 +1,32 @@
+# TALONITE: initial-access broker, ICS kill-chain stage 1.
+#
+# All facts sourced to Dragos's public TALONITE page (S-0027). S-0027
+# states Dragos "cannot definitively link" TALONITE to APT10 despite
+# noted behavioral overlap, so no `aliases` entry is recorded for
+# APT10 -- this is documented only in this comment.
+id: talonite
+name: TALONITE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: initial_access_broker
+
+targets:
+  sectors: [electric]
+  geos: [US, JP, TW]
+  src: S-0027
+
+tools:
+  - name: LookBack
+    class: rat
+    src: S-0027
+  - name: FlowCloud
+    class: rat
+    src: S-0027
+
+techniques:
+  # T1566.001 (Spearphishing Attachment): S-0027 describes
+  # "spearphishing campaigns with malicious documents or executables"
+  # using engineering-themed lures.
+  - attack_id: T1566.001
+    matrix: enterprise
+    src: S-0027

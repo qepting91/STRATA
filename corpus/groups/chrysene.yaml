@@ -1,0 +1,31 @@
+# CHRYSENE: initial-access broker, ICS kill-chain stage 1.
+#
+# All facts sourced to Dragos's public CHRYSENE page (S-0017). The page
+# describes unnamed "64-bit malware with IPv6 C2" and unnamed watering-
+# hole infrastructure, so `tools` is left empty rather than inventing
+# names for that malware. No specific CVE is named.
+id: chrysene
+name: CHRYSENE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: initial_access_broker
+
+aliases:
+  - name: Greenbug
+    org: Symantec
+    src: S-0017
+  - name: OilRig
+    org: Palo Alto Networks
+    src: S-0017
+
+targets:
+  sectors: [petrochemical, oil_gas, electric]
+  geos: [IQ, PK, IL, GB, SA]
+  src: S-0017
+
+techniques:
+  # T1189 (Drive-by Compromise): S-0017 describes CHRYSENE's use of
+  # watering-hole attack infrastructure.
+  - attack_id: T1189
+    matrix: enterprise
+    src: S-0017

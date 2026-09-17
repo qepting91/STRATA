@@ -1,0 +1,46 @@
+# GRAPHITE: espionage/reconnaissance operator, ICS kill-chain stage 1.
+#
+# All facts sourced to Dragos's public GRAPHITE page (S-0020). The page
+# mentions a "no-click flaw in Microsoft Outlook" and "multiple zero-day
+# vulnerabilities" but names no literal CVE-YYYY-NNNNN identifier
+# (checked directly on the page) -- so no `exploits` entry is recorded,
+# even though this description is publicly associated elsewhere with a
+# specific well-known CVE, per this project's no-fabrication rule.
+id: graphite
+name: GRAPHITE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: espionage_and_reconnaissance_operator
+
+aliases:
+  # S-0020 notes an overlap with APT28 but the page does not itself
+  # state which firm's naming "APT28" is being cited from -- no `org`
+  # is recorded, matching the CyberAv3ngers precedent in bauxite.yaml.
+  - name: APT28
+    src: S-0020
+
+targets:
+  sectors: [energy, oil_gas, logistics]
+  geos: [UA]
+  src: S-0020
+
+tools:
+  - name: OCEANMAP
+    class: backdoor
+    src: S-0020
+  - name: HEADLACE
+    class: backdoor
+    src: S-0020
+  - name: MASEPIE
+    class: backdoor
+    src: S-0020
+  - name: STEELHOOK
+    class: stealer
+    src: S-0020
+
+techniques:
+  # T1566 (Phishing): S-0020 describes GRAPHITE's tradecraft as
+  # "spearphishing and credential theft."
+  - attack_id: T1566
+    matrix: enterprise
+    src: S-0020

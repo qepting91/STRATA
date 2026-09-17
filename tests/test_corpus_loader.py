@@ -93,3 +93,57 @@ def test_load_corpus_unknown_citation_raises(tmp_path: Path, fixtures_dir: Path)
         load_corpus(conn, corpus_dir=fixtures_dir / "corpus_bad_citation")
 
     conn.close()
+
+
+def test_real_corpus_azurite_pyroxene_corrected_to_stage_2(tmp_path: Path) -> None:
+    """AZURITE and PYROXENE were corrected from Stage 1 -> Stage 2 this
+    session (both are explicitly named Stage 2 in the Dragos 2026 OT/ICS
+    Cybersecurity Year in Review's own "About" sections, cited S-0012) --
+    against the project's own real corpus/, not a synthetic fixture,
+    since this is a real, load-bearing accuracy correction."""
+    import json
+
+    conn = store.get_connection(tmp_path / "strata.db")
+    load_corpus(conn, corpus_dir=Path("corpus"))
+
+    for group_id in ("azurite", "pyroxene"):
+        row = conn.execute(
+            "SELECT attrs FROM node WHERE id = ?", (group_id,)
+        ).fetchone()
+        attrs = json.loads(row["attrs"])
+        assert attrs["ics_kill_chain_stage"] == 2, group_id
+
+    conn.close()
+
+
+def test_real_corpus_sylvanite_godzilla_and_frp_share_tool_ids_across_groups(
+    tmp_path: Path,
+) -> None:
+    """SYLVANITE's newly-added Godzilla/frp tool entries (S-0012) must
+    slug to the SAME tool node ids that AZURITE's existing Godzilla entry
+    and VOLTZITE's existing frp entry already produce -- otherwise any
+    cross-group tool-sharing analysis would see 4 distinct tools instead
+    of 2 real shared ones. normalize/corpus.py's slugging is
+    f"tool-{name.lower().replace(' ', '_')}", so this is really just
+    confirming "Godzilla"/"frp" (as spelled in each group's own YAML)
+    produce identical slugs regardless of casing/spelling differences."""
+    conn = store.get_connection(tmp_path / "strata.db")
+    load_corpus(conn, corpus_dir=Path("corpus"))
+
+    godzilla_users = {
+        row["src_id"]
+        for row in conn.execute(
+            "SELECT src_id FROM edge WHERE type = 'uses' AND dst_id = 'tool-godzilla'"
+        ).fetchall()
+    }
+    assert godzilla_users == {"sylvanite", "azurite"}
+
+    frp_users = {
+        row["src_id"]
+        for row in conn.execute(
+            "SELECT src_id FROM edge WHERE type = 'uses' AND dst_id = 'tool-frp'"
+        ).fetchall()
+    }
+    assert frp_users == {"sylvanite", "voltzite"}
+
+    conn.close()

@@ -1,0 +1,33 @@
+# KOSTOVITE: OT-intrusion operator, ICS kill-chain stage 2.
+#
+# All facts sourced to Dragos's public KOSTOVITE page (S-0022). The
+# page states exploitation of "a zero-day vulnerability in Ivanti
+# Connect Secure" but names no literal CVE-YYYY-NNNNN identifier
+# (checked directly on the page), so no `exploits` entry is recorded.
+# No specific target geography beyond "at least two continents" is
+# given, so `targets.geos` is left empty.
+id: kostovite
+name: KOSTOVITE
+naming_org: Dragos
+ics_kill_chain_stage: 2
+role: ot_intrusion_operator
+
+aliases:
+  # S-0022: "significant...overlaps with the threat group known as
+  # UNC2630," Mandiant's designation.
+  - name: UNC2630
+    org: Mandiant
+    src: S-0022
+
+targets:
+  sectors: [renewable_energy]
+  geos: []
+  src: S-0022
+
+techniques:
+  # T1190 (Exploit Public-Facing Application): S-0022 describes a
+  # zero-day exploited in the internet-facing Ivanti Connect Secure VPN
+  # appliance to gain OT network access.
+  - attack_id: T1190
+    matrix: enterprise
+    src: S-0022

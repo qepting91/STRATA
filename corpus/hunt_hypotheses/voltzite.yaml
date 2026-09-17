@@ -1,0 +1,74 @@
+# VOLTZITE hunt hypothesis worksheet -- reference example, not graph data.
+#
+# Grounded in VOLTZITE's real corpus profile (corpus/groups/voltzite.yaml,
+# cited S-0002), SYLVANITE's real corpus profile (S-0001, for the
+# real hands_off_to relationship), and S-0012 for the frp cross-group
+# tool finding.
+group_id: voltzite
+hypothesis_statement: >
+  VOLTZITE is leveraging living-off-the-land techniques and Fast Reverse
+  Proxy (frp) tunneling, likely via access received from SYLVANITE, to
+  reach Level 2 assets in the electric/water/oil-gas sectors and
+  establish long-term persistence.
+src: S-0002
+pir_reference: >
+  Illustrative PIR (not a real stakeholder requirement -- shown to
+  demonstrate the framework's structure): "If SYLVANITE has already
+  breached our internet-facing edge devices, could VOLTZITE be operating
+  undetected downstream?"
+
+cmf_notes:
+  - hunt_step: >
+      Confirm whether SYLVANITE's known exploited CVEs/products appear
+      in your own vulnerability/patch data, since VOLTZITE's real corpus
+      profile shows it receives access handed off from SYLVANITE.
+    strata_coverage: >
+      MODELED -- STRATA's real hands_off_to edge (sylvanite -> voltzite,
+      confidence=high) and hunt H009's traversal both surface this
+      relationship directly; the Threat Groups page shows SYLVANITE's 5
+      real cited exploited CVEs.
+    src: S-0001
+
+  - hunt_step: >
+      Baseline PowerShell/WMI/native-tool execution on OT-adjacent
+      Windows hosts to catch living-off-the-land activity.
+    strata_coverage: >
+      NOT MODELED -- STRATA has no endpoint script-block or process
+      telemetry. This is real host-level logging an analyst enables
+      themselves (see the Visibility Gaps page's "LOTL / PowerShell
+      abuse" row -- flagged Low difficulty to enable, but almost never
+      actually collected in OT).
+
+  - hunt_step: >
+      Hunt for Fast Reverse Proxy (frp) binaries or traffic patterns on
+      the network.
+    strata_coverage: >
+      PARTIALLY MODELED -- frp is a real, corpus-cited tool for VOLTZITE
+      and, per the same Dragos 2026 report finding, also for SYLVANITE.
+      STRATA gives you the tool identity to search for; it has no
+      network-traffic detection signatures of its own.
+    src: S-0012
+
+  - hunt_step: >
+      Check whether any VOLTZITE-relevant CVE has a real patch-latency or
+      KEV-timing signal worth prioritizing.
+    strata_coverage: >
+      MODELED, generally -- H003's patch_available_at_kev metric and the
+      Weaponization Timeline page cover this across the whole corpus,
+      though no specific CVE is currently cited to VOLTZITE itself
+      (its own public reporting doesn't name one).
+
+outcome_criteria:
+  proved: >
+    Confirmed LOTL tool abuse or frp traffic on a host reachable from a
+    known SYLVANITE-exploited edge device, especially on an OT-adjacent
+    segment -- treat as an active Stage 2 intrusion and engage IR.
+  disproved: >
+    No LOTL/frp indicators found across the relevant window, and
+    edge-device logs show no successful SYLVANITE-pattern access in the
+    first place.
+  inconclusive: >
+    PowerShell/script-block logging and east-west flow visibility are
+    the two real dependencies for this hunt, and the Visibility Gaps
+    page already flags both as commonly missing in OT -- if you don't
+    have them, this is a collection-gap finding, not a clean result.

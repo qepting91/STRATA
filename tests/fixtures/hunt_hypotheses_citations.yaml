@@ -1,0 +1,6 @@
+S-TEST-1:
+  publisher: TestPublisher
+  url: https://example.test/test-group-report
+  retrieved: "2026-01-01"
+  supports: >
+    Synthetic citation for HuntHypothesis loader tests only.

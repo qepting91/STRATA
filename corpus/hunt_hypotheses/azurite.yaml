@@ -1,0 +1,75 @@
+# AZURITE hunt hypothesis worksheet -- reference example, not graph data.
+#
+# Grounded in AZURITE's real corpus profile (corpus/groups/azurite.yaml,
+# cited S-0008) and, for the Godzilla cross-group finding, S-0012 (the
+# same Dragos 2026 report finding that drove H004's REFUTED verdict).
+# Every `strata_coverage` note states plainly whether the hunt step is
+# something STRATA's own graph/corpus actually models, or something an
+# analyst would need to bring from their own environment -- per this
+# project's whole provenance ethos, nothing here claims coverage STRATA
+# doesn't have.
+group_id: azurite
+hypothesis_statement: >
+  AZURITE is using compromised SOHO/edge infrastructure and stolen valid
+  credentials to pivot from internet-facing devices to Level 2
+  engineering workstations, exfiltrating PLC/HMI configuration and alarm
+  data to support future offensive-operations development.
+src: S-0008
+pir_reference: >
+  Illustrative PIR (not a real stakeholder requirement -- shown to
+  demonstrate the framework's structure): "Are China-nexus access
+  brokers currently positioned to reach our engineering workstations via
+  edge-device compromise?"
+
+cmf_notes:
+  - hunt_step: >
+      Audit VPN/edge-gateway authentication logs for session-count,
+      geography, and timing outliers.
+    strata_coverage: >
+      NOT MODELED -- STRATA has no per-device authentication telemetry
+      of any kind. This is real VPN/gateway log data an analyst brings
+      from their own environment (see the Visibility Gaps page's "VPN
+      session-count outliers" row).
+
+  - hunt_step: >
+      Identify which edge products AZURITE and other tracked groups have
+      exploited, to prioritize which gateway types to audit first.
+    strata_coverage: >
+      MODELED -- STRATA's own adversary-consensus scoring
+      (enrich/consensus.py, feeding H001/H007) already ranks products by
+      distinct-group exploitation; cross-reference against AZURITE's
+      real cited tool/technique list on the Threat Groups page.
+
+  - hunt_step: >
+      Detect SOCKS/SOCKS5 proxy-tunnel anomalies at the IT/OT boundary.
+    strata_coverage: >
+      NOT MODELED -- needs real east-west NetFlow, which the Visibility
+      Gaps page's own telemetry matrix already lists as a High-difficulty
+      gap for exactly this technique.
+
+  - hunt_step: >
+      Check whether any of AZURITE's cited web shells (Chopper, AntSword,
+      SuperShell, devilszshell, Godzilla) appear in your own EDR/AV alert
+      history.
+    strata_coverage: >
+      PARTIALLY MODELED -- Godzilla is a real, corpus-cited tool for
+      AZURITE (and, per this same source, also for SYLVANITE -- the
+      cross-group finding that drove hunt H004's REFUTED verdict).
+      STRATA gives you the tool identity to search your own EDR for; it
+      has no endpoint telemetry of its own.
+    src: S-0012
+
+outcome_criteria:
+  proved: >
+    Unauthorized RDP/interactive sessions from an edge device to an
+    engineering workstation, or a known AZURITE web shell identified on
+    a DMZ/EWS host -- escalate to IR immediately.
+  disproved: >
+    No qualifying authentication anomalies, no matching web-shell
+    artifacts, and edge-device patch/configuration state shows no
+    plausible entry point for AZURITE's known technique set.
+  inconclusive: >
+    The relevant telemetry (VPN auth logs, SOCKS/SOCKS5 flow visibility,
+    EWS endpoint logging) doesn't exist in your environment -- record
+    this as a collection gap, not a clean result, per STRATA's own
+    Collection Health philosophy.

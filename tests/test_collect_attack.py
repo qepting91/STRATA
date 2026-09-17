@@ -57,6 +57,22 @@ def test_attack_collects_enterprise_and_ics_techniques(
     attrs = json.loads(row["attrs"])
     assert attrs["matrix"] == "enterprise"
     assert attrs["tactics"] == ["initial-access"]
+    assert attrs["url"] == "https://attack.mitre.org/techniques/T1190/"
+    # Citation markers are stripped, real description text is kept.
+    assert attrs["description"].startswith("Adversaries may attempt to exploit")
+    assert "Citation" not in attrs["description"]
+    # Real ATT&CK descriptions embed markdown-style links
+    # ("[text](url)") -- these must be flattened to plain text, since
+    # raw "[text](url)" syntax corrupts the UI's HTML tooltip attribute
+    # (found live: Streamlit's markdown renderer converts it into a real
+    # <a> tag even inside an existing HTML attribute string).
+    assert "Command and Scripting Interpreter" in attrs["description"]
+    assert "[" not in attrs["description"]
+    assert "](" not in attrs["description"]
+
+    sub_row = conn.execute("SELECT * FROM node WHERE id = ?", ("T1505.003",)).fetchone()
+    sub_attrs = json.loads(sub_row["attrs"])
+    assert sub_attrs["url"] == "https://attack.mitre.org/techniques/T1505/003/"
 
     ics_row = conn.execute("SELECT * FROM node WHERE id = ?", ("T0886",)).fetchone()
     assert json.loads(ics_row["attrs"])["matrix"] == "ics"

@@ -1,0 +1,36 @@
+# RASPITE: initial-access broker, ICS kill-chain stage 1.
+#
+# All facts sourced to Dragos's public RASPITE page (S-0025). Only the
+# US is specifically named among the vaguer "Middle East/Europe/East
+# Asia" targeting description, so only US is recorded in
+# `targets.geos`. "Service installer malware" is described only
+# generically with no family name, so `tools` is left empty.
+id: raspite
+name: RASPITE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: initial_access_broker
+
+aliases:
+  # S-0025: "RASPITE overlaps significantly with Symantec's LEAFMINER."
+  - name: LEAFMINER
+    org: Symantec
+    src: S-0025
+
+targets:
+  sectors: [electric]
+  geos: [US]
+  src: S-0025
+
+techniques:
+  # T1189 (Drive-by Compromise): S-0025 describes "strategic website
+  # compromise to gain initial access."
+  - attack_id: T1189
+    matrix: enterprise
+    src: S-0025
+  # T1187 (Forced Authentication): S-0025 describes "embedding a link
+  # to a resource to prompt an SMB connection" for credential
+  # harvesting.
+  - attack_id: T1187
+    matrix: enterprise
+    src: S-0025

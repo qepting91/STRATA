@@ -1,0 +1,35 @@
+# BENTONITE: opportunistic espionage/disruption operator.
+#
+# All facts sourced to Dragos's public BENTONITE page (S-0015). No
+# ICS kill-chain stage is explicitly stated on the page, so
+# `ics_kill_chain_stage` is left null. The page mentions exploitation of
+# "Log4j vulnerabilities" and "VMware Horizons vulnerabilities" only
+# generically, with no literal CVE-YYYY-NNNNN identifier anywhere on the
+# page (checked directly) -- so no `exploits` entry is recorded, per
+# this project's no-fabrication rule. Named tools are likewise described
+# only generically ("multi-stage downloaders", "malware implants"), so
+# `tools` is left empty rather than inventing names.
+id: bentonite
+name: BENTONITE
+naming_org: Dragos
+role: opportunistic_espionage_and_disruption_operator
+
+aliases:
+  # S-0015: "Associated with PHOSPHORUS" -- Microsoft's naming for an
+  # Iranian state-linked activity cluster.
+  - name: PHOSPHORUS
+    org: Microsoft
+    src: S-0015
+
+targets:
+  sectors: [oil_gas, maritime, government, manufacturing]
+  geos: [US]
+  src: S-0015
+
+techniques:
+  # T1059.001 (Command and Scripting Interpreter: PowerShell): S-0015
+  # describes "heavy PowerShell usage" as a core part of BENTONITE
+  # tradecraft.
+  - attack_id: T1059.001
+    matrix: enterprise
+    src: S-0015

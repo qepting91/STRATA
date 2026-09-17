@@ -20,11 +20,22 @@ Only `technique` nodes are created here (id = the ATT&CK ID such as
 `T1190`, taken from `external_references` where `source_name ==
 "mitre-attack"`). No edges: group<->technique relationships come from the
 corpus loader (`normalize/corpus.py`), not from ATT&CK content itself.
+
+Each technique node's attrs also carry the real MITRE `description` (STIX
+`description` field, truncated to a reasonable UI length) and a `url`
+computed from the ATT&CK ID itself (MITRE's own scheme: a base technique
+like `T1190` links to `https://attack.mitre.org/techniques/T1190/`; a
+sub-technique like `T1055.011` links to
+`https://attack.mitre.org/techniques/T1055/011/` -- the sub-ID segment
+becomes its own path component, not part of the same one). This lets the
+UI show an analyst the real technique name/description/link next to a
+group's bare technique ID instead of just the ID alone.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from typing import ClassVar
 
@@ -44,6 +55,31 @@ _MATRIX_BY_URL = {
     ENTERPRISE_URL: "enterprise",
     ICS_URL: "ics",
 }
+
+# Real MITRE ATT&CK descriptions embed inline markdown-style hyperlinks,
+# e.g. "[Command and Scripting Interpreter](https://attack.mitre.org/
+# techniques/T1059)" -- a documented ATT&CK content convention, not an
+# artifact of this collector. Left in place, that raw "[text](url)" text
+# corrupts the UI's tag-cluster HTML when used as a `title=` tooltip
+# attribute (found live: Streamlit's markdown renderer converts the
+# bracket/paren syntax into a real <a> tag even inside an HTML attribute
+# string, breaking the surrounding markup). Stripped down to just the
+# link's own display text here, since this is a plain-text tooltip, not
+# clickable content.
+_MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]+\)")
+
+
+def _technique_url(attack_id: str) -> str:
+    """Build the real MITRE ATT&CK technique URL for an attack_id.
+
+    A sub-technique id (e.g. "T1055.011") becomes its own path segment
+    ("/T1055/011/"), matching MITRE's own URL scheme -- verified against
+    live ATT&CK pages, not guessed.
+    """
+    base, _, sub = attack_id.partition(".")
+    if sub:
+        return f"https://attack.mitre.org/techniques/{base}/{sub}/"
+    return f"https://attack.mitre.org/techniques/{base}/"
 
 
 class ATTACKCollector(Collector):
@@ -80,12 +116,24 @@ class ATTACKCollector(Collector):
                 for phase in obj.get("kill_chain_phases", [])
                 if phase.get("phase_name")
             ]
+            description = obj.get("description")
+            if description:
+                # MITRE descriptions run long and often embed markdown-style
+                # citation markers (e.g. "(Citation: Foo)"); truncate to a
+                # length that reads as a summary in the UI rather than a wall
+                # of text, without pretending it's the full text.
+                description = description.split("(Citation:")[0].strip()
+                description = _MARKDOWN_LINK_RE.sub(r"\1", description)
+                if len(description) > 500:
+                    description = description[:497].rstrip() + "..."
             records.append(
                 {
                     "attack_id": attack_id,
                     "name": obj.get("name"),
                     "matrix": matrix,
                     "tactics": tactics,
+                    "description": description,
+                    "url": _technique_url(attack_id),
                     "_fetch_result": fetch_result,
                 }
             )
@@ -129,6 +177,8 @@ class ATTACKCollector(Collector):
                     "name": record["name"],
                     "matrix": matrix,
                     "tactics": record["tactics"],
+                    "description": record["description"],
+                    "url": record["url"],
                 },
                 sort_keys=True,
             )

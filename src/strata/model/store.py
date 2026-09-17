@@ -510,6 +510,59 @@ def get_all_group_nodes(conn: sqlite3.Connection) -> list[dict]:
     return groups
 
 
+def get_all_tool_nodes(conn: sqlite3.Connection) -> list[dict]:
+    """Return every ``tool``-type node as a dict with parsed attrs.
+
+    Used by ``enrich/attack_software.py`` to match each corpus-cited tool's
+    real display label (e.g. "WIREFIRE") against the MITRE ATT&CK software
+    index, so the match is keyed off the same name an analyst would
+    recognize rather than the internal ``tool-<slug>`` node id.
+
+    Returns:
+        A list of ``{"id": ..., "label": ..., "attrs": {...} | None}``
+        dicts, one per ``tool`` node, ordered by id.
+    """
+    rows = conn.execute(
+        "SELECT id, label, attrs FROM node WHERE type = 'tool' ORDER BY id"
+    ).fetchall()
+    tools: list[dict] = []
+    for row in rows:
+        attrs = None
+        if row["attrs"] is not None:
+            try:
+                attrs = json.loads(row["attrs"])
+            except json.JSONDecodeError:
+                attrs = None
+        tools.append({"id": row["id"], "label": row["label"], "attrs": attrs})
+    return tools
+
+
+def get_all_technique_nodes(conn: sqlite3.Connection) -> list[dict]:
+    """Return every ``technique``-type node as a dict with parsed attrs.
+
+    Used by the Streamlit UI to render each ATT&CK technique's real MITRE
+    name/description/URL (from ``collect/attack.py``'s attrs) next to a
+    group's bare technique ID, instead of showing the ID alone.
+
+    Returns:
+        A list of ``{"id": ..., "label": ..., "attrs": {...} | None}``
+        dicts, one per ``technique`` node, ordered by id.
+    """
+    rows = conn.execute(
+        "SELECT id, label, attrs FROM node WHERE type = 'technique' ORDER BY id"
+    ).fetchall()
+    techniques: list[dict] = []
+    for row in rows:
+        attrs = None
+        if row["attrs"] is not None:
+            try:
+                attrs = json.loads(row["attrs"])
+            except json.JSONDecodeError:
+                attrs = None
+        techniques.append({"id": row["id"], "label": row["label"], "attrs": attrs})
+    return techniques
+
+
 def get_outgoing_edges(
     conn: sqlite3.Connection, src_id: str, edge_types: list[str] | None = None
 ) -> list[dict]:

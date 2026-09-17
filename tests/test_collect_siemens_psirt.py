@@ -79,8 +79,8 @@ def test_siemens_psirt_collect_lands_advisory_vuln_and_describes_edge(
     ).fetchone()
     assert joined["n"] == 2
 
-    # The vendor's own advisory disclosure date is what H010 needs -- not
-    # just the fetch timestamp.
+    # The vendor's own advisory disclosure date is the real value-add
+    # here -- not just the fetch timestamp.
     advisory_row = conn.execute(
         "SELECT attrs FROM node WHERE id = 'SSA-823812'"
     ).fetchone()

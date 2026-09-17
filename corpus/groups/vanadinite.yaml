@@ -1,0 +1,56 @@
+# VANADINITE: initial-access operator, ICS kill-chain stage 1.
+#
+# All facts sourced to Dragos's public VANADINITE page (S-0028). Only
+# continents ("North America, Europe, and possibly Asia and
+# Australia") are named for targeting, with no specific country, so
+# `targets.geos` is left empty. The page describes use of "publicly-
+# available exploits" and "non-public malware linked to other Winnti
+# entities" without naming that malware, so no CVE and no additional
+# named tool beyond Metasploit/Cobalt Strike is recorded.
+id: vanadinite
+name: VANADINITE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: initial_access_operator
+
+aliases:
+  # S-0028: "considerable overlap with the group Microsoft calls LEAD"
+  # -- Microsoft's own designation, described as a subset of Winnti
+  # activity.
+  - name: LEAD
+    org: Microsoft
+    src: S-0028
+  # S-0028: linked by the U.S. Department of Justice to PRC operators
+  # associated with the "Winnti" umbrella and APT41; APT41 is commonly
+  # attributed to FireEye/Mandiant naming.
+  - name: APT41
+    org: FireEye
+    src: S-0028
+  # "Winnti" is used on the page as a broader umbrella/malware-family
+  # name rather than one firm's assigned cluster name, so no `org` is
+  # recorded, matching the CyberAv3ngers precedent in bauxite.yaml.
+  - name: Winnti
+    src: S-0028
+
+targets:
+  sectors: [energy, manufacturing, government, education, telecommunications, transportation, electric, oil_gas]
+  geos: []
+  src: S-0028
+
+tools:
+  - name: Metasploit
+    class: framework
+    oss: true
+    src: S-0028
+  - name: Cobalt Strike
+    class: framework
+    oss: false
+    src: S-0028
+
+techniques:
+  # T1190 (Exploit Public-Facing Application): S-0028 describes
+  # VANADINITE exploiting "vulnerabilities in external-facing network
+  # and security devices."
+  - attack_id: T1190
+    matrix: enterprise
+    src: S-0028

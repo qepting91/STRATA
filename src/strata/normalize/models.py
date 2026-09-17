@@ -105,6 +105,12 @@ class Citation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     publisher: str
-    url: str
+    # Nullable: a citation may be a locally-supplied document (e.g. a PDF
+    # provided directly by the user) rather than a fetched web resource,
+    # in which case there is no retrieval URL to cite (see S-0012 in
+    # corpus/citations.yaml). The `source` table's own `url` column is
+    # already nullable (schema.sql) -- this mirrors that honestly rather
+    # than forcing a placeholder string.
+    url: str | None = None
     retrieved: str | None = None
     supports: str | None = None

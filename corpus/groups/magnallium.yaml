@@ -1,0 +1,44 @@
+# MAGNALLIUM: reconnaissance/espionage group, no ICS-specific destructive
+# capability documented.
+#
+# All facts sourced to Dragos's public MAGNALLIUM page (S-0013). This
+# file upgrades the bare stub node that `strata corpus load` created
+# since Week 2 (referenced only via parisite.yaml's hands_off_to edge)
+# to a full profile. That handoff is declared once, on parisite.yaml --
+# it is not re-asserted here, to avoid a duplicate edge row.
+id: magnallium
+name: MAGNALLIUM
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: espionage_and_access_development
+
+aliases:
+  - name: APT33
+    org: FireEye
+    src: S-0013
+
+targets:
+  sectors: [petrochemical, oil_gas, aerospace, electric]
+  # S-0013: primary focus is the Gulf region (Saudi Arabia specifically
+  # named), with additional activity in Europe, North America, and
+  # South Korea.
+  geos: [SA, KR]
+  src: S-0013
+
+tools:
+  - name: StoneDrill
+    class: malware
+    src: S-0013
+  - name: TURNEDUP
+    class: malware
+    src: S-0013
+
+techniques:
+  # T1566 (Phishing): career-themed phishing lures per S-0013.
+  # T1110 (Brute Force): password spraying per S-0013.
+  - attack_id: T1566
+    matrix: enterprise
+    src: S-0013
+  - attack_id: T1110
+    matrix: enterprise
+    src: S-0013

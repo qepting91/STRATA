@@ -1,0 +1,36 @@
+# STIBNITE: espionage/access operator, ICS kill-chain stage 1.
+#
+# All facts sourced to Dragos's public STIBNITE page (S-0026). S-0026
+# states "no associations with known activity," so no `aliases` entry
+# is recorded.
+id: stibnite
+name: STIBNITE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: espionage_and_access_operator
+
+targets:
+  sectors: [wind_generation, government]
+  geos: [AZ]
+  src: S-0026
+
+tools:
+  - name: PoetRAT
+    class: rat
+    src: S-0026
+  - name: LaZagne
+    class: credential_theft_tool
+    oss: true
+    src: S-0026
+
+techniques:
+  # T1566 (Phishing): S-0026 describes STIBNITE's use of spearphishing
+  # campaigns.
+  - attack_id: T1566
+    matrix: enterprise
+    src: S-0026
+  # T1003 (OS Credential Dumping): S-0026 names LaZagne, a well-known
+  # open-source credential-recovery/dumping tool.
+  - attack_id: T1003
+    matrix: enterprise
+    src: S-0026

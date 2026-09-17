@@ -1,0 +1,31 @@
+# CHERNOVITE: ICS malware developer, ICS kill-chain stage 2.
+#
+# All facts sourced to Dragos's public CHERNOVITE page (S-0016). No
+# targeted geography is named on the page (only sectors), so
+# `targets.geos` is left empty rather than guessed.
+id: chernovite
+name: CHERNOVITE
+naming_org: Dragos
+ics_kill_chain_stage: 2
+role: ics_malware_developer
+
+targets:
+  sectors: [oil_gas, electric, lng]
+  geos: []
+  src: S-0016
+
+tools:
+  # PIPEDREAM: per S-0016, "the seventh known ICS-specific malware,"
+  # capable of device scanning, password brute-forcing, connection
+  # severing, and device crashing against Schneider Electric/Omron/
+  # CoDeSys-based PLCs and OPC-UA environments.
+  - name: PIPEDREAM
+    class: ics_malware
+    src: S-0016
+
+techniques:
+  # T1110 (Brute Force): S-0016 describes PIPEDREAM's "password
+  # brute-forcing" capability.
+  - attack_id: T1110
+    matrix: enterprise
+    src: S-0016

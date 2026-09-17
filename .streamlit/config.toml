@@ -6,7 +6,18 @@
 address = "127.0.0.1"
 port = 8501
 headless = true
-enableCORS = false
+# enableCORS=true (not Streamlit's own false default) + no
+# corsAllowedOrigins entries: Streamlit's own warning is explicit that
+# enableCORS=false sends `Access-Control-Allow-Origin: *` and accepts a
+# WebSocket handshake from ANY origin -- a malicious page open in the
+# same browser could open a cross-origin WebSocket to this local
+# service and read graph data, even though this app is read-only and
+# bound to 127.0.0.1. Setting enableCORS=true with no allowed-origins
+# list restricts both HTTP and WebSocket access to same-origin requests
+# only (http://127.0.0.1:8501 / http://localhost:8501) -- the correct,
+# most-restrictive setting for a single-user local tool with no
+# legitimate cross-origin caller.
+enableCORS = true
 enableXsrfProtection = true
 enableStaticServing = false
 fileWatcherType = "none"

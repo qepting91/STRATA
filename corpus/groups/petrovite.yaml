@@ -1,0 +1,30 @@
+# PETROVITE: espionage/reconnaissance operator, ICS kill-chain stage 1.
+#
+# All facts sourced to Dragos's public PETROVITE page (S-0024). S-0024
+# notes an "overlap with KAMACITE and FANCY BEAR activity," but this is
+# described as a behavioral/infrastructure overlap, not a stated
+# handoff-of-access relationship (unlike, e.g., kamacite.yaml's own
+# handoff to electrum) or a claim that PETROVITE and KAMACITE are the
+# same cluster -- so it is recorded here only as this comment, not as
+# an `aliases` or `hands_off_to` entry, to avoid overstating the source.
+id: petrovite
+name: PETROVITE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: espionage_and_reconnaissance_operator
+
+targets:
+  sectors: [mining, energy, critical_manufacturing]
+  geos: [KZ]
+  src: S-0024
+
+tools:
+  - name: ZEBROCY
+    class: backdoor
+    src: S-0024
+
+techniques:
+  # T1566 (Phishing): S-0024 names "tailored spearphishing documents."
+  - attack_id: T1566
+    matrix: enterprise
+    src: S-0024

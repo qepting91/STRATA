@@ -1,0 +1,42 @@
+# XENOTIME: ICS safety-system disruption operator, ICS kill-chain
+# stage 2.
+#
+# All facts sourced to Dragos's public XENOTIME page (S-0030). S-0030
+# states "this group has no known associations to other activity
+# groups," so no `aliases` entry is recorded. TRISIS/TRITON are recorded
+# as a `tools` entry (the malware itself), not as a group alias -- they
+# are names for the malware family, not another firm's name for the
+# XENOTIME cluster. No specific target country is named (only "Middle
+# East"/"North America"/"global"), so `targets.geos` is left empty.
+id: xenotime
+name: XENOTIME
+naming_org: Dragos
+ics_kill_chain_stage: 2
+role: ics_safety_system_disruption_operator
+
+targets:
+  sectors: [oil_gas, electric]
+  geos: []
+  src: S-0030
+
+tools:
+  # TRISIS (also called TRITON by FireEye) targets Schneider Electric's
+  # Triconex safety instrumented system, per S-0030.
+  - name: TRISIS
+    class: ics_malware
+    src: S-0030
+  # PsExec: named "off-the-shelf" tool used alongside Windows commands
+  # per S-0030.
+  - name: PsExec
+    class: lolbin
+    src: S-0030
+
+techniques:
+  # T0816 (Device Restart/Shutdown, ICS matrix): S-0030 describes
+  # XENOTIME as "the only activity group intentionally compromising and
+  # disrupting industrial safety instrumented systems," consistent with
+  # TRISIS/TRITON's documented effect of forcing safety-controller
+  # shutdowns.
+  - attack_id: T0816
+    matrix: ics
+    src: S-0030

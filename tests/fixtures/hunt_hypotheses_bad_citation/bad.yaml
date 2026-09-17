@@ -1,0 +1,11 @@
+group_id: test-group
+hypothesis_statement: A hypothesis citing an unknown source id.
+src: S-DOES-NOT-EXIST
+pir_reference: "Illustrative PIR: irrelevant."
+cmf_notes:
+  - hunt_step: A step.
+    strata_coverage: Not modeled.
+outcome_criteria:
+  proved: N/A
+  disproved: N/A
+  inconclusive: N/A

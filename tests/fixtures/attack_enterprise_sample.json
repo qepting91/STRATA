@@ -6,6 +6,7 @@
       "type": "attack-pattern",
       "id": "attack-pattern--1",
       "name": "Exploit Public-Facing Application",
+      "description": "Adversaries may attempt to exploit a weakness in an Internet-facing host or system, such as a [Command and Scripting Interpreter](https://attack.mitre.org/techniques/T1059). (Citation: CISA AA20-283A)",
       "kill_chain_phases": [
         {"kill_chain_name": "mitre-attack", "phase_name": "initial-access"}
       ],
@@ -36,7 +37,20 @@
     {
       "type": "malware",
       "id": "malware--1",
-      "name": "Not a technique"
+      "name": "WIREFIRE",
+      "x_mitre_aliases": ["WIREFIRE", "GIFTEDVISITOR"],
+      "external_references": [
+        {"source_name": "mitre-attack", "external_id": "S1115", "url": "https://attack.mitre.org/software/S1115"}
+      ]
+    },
+    {
+      "type": "malware",
+      "id": "malware--2",
+      "name": "Deprecated Software",
+      "x_mitre_deprecated": true,
+      "external_references": [
+        {"source_name": "mitre-attack", "external_id": "S9999"}
+      ]
     }
   ]
 }

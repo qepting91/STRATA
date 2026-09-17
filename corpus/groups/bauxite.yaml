@@ -39,3 +39,12 @@ techniques:
   - attack_id: T1210
     matrix: ics
     src: S-0010
+  # T1485 (Data Destruction): per S-0012, in June 2025 Dragos assessed
+  # with high confidence that BAUXITE deployed two (unnamed) wiper
+  # malware variants against targets in Israel, coinciding with the
+  # Israel-Iran conflict. No specific malware family name is given in
+  # the source (unlike ELECTRUM's named PathWiper), so this is recorded
+  # as a technique rather than an invented tool entry.
+  - attack_id: T1485
+    matrix: enterprise
+    src: S-0012

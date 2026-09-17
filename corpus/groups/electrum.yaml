@@ -16,9 +16,27 @@ targets:
   # S-0007: Ukraine (2015/2016 grid events); "the group is no longer
   # focusing exclusively on Ukraine" and its SANDWORM link implies
   # broader European reach, but no other specific country is named, so
-  # only UA is listed as a concrete geo.
+  # only UA is listed as a concrete geo. S-0012's real 2026 report
+  # update confirms ELECTRUM's late-December-2025 targeting expanded to
+  # Polish energy infrastructure (combined heat and power plants,
+  # renewable energy management platforms) -- not yet added as its own
+  # geo (PL) here since the report frames this as a single dated
+  # incident, not an established/ongoing targeting pattern the way UA
+  # is; noted here rather than silently omitted.
   geos: [UA]
   src: S-0007
+
+aliases:
+  # Solntsepek: a pro-Russian hacktivist persona (typically associated
+  # with doxing) that ELECTRUM has repeatedly co-opted as a deniable
+  # front for destructive operations -- this is the third such observed
+  # pairing per S-0012. Dragos tracks the persona itself under the
+  # activity-cluster id TAT25-41, listed here as `org` since it is
+  # Dragos's own internal tracking label, not another firm's competing
+  # attribution name (unlike e.g. sylvanite.yaml's UNC5221).
+  - name: Solntsepek
+    org: "Dragos (tracked as TAT25-41)"
+    src: S-0012
 
 tools:
   # CRASHOVERRIDE: the ICS malware used to manipulate electric
@@ -26,6 +44,15 @@ tools:
   - name: CRASHOVERRIDE
     class: ics_malware
     src: S-0007
+  # PathWiper: a destructive wiper (overwrites MBR/NTFS metadata,
+  # systematically enumerates and destroys all accessible storage
+  # media) first identified by Cisco Talos, appearing in the wild from
+  # March 2025. S-0012 states Dragos "has previously linked [it] to
+  # ELECTRUM with moderate confidence" -- explicitly not a high-
+  # confidence attribution, carried here as-is rather than rounded up.
+  - name: PathWiper
+    class: wiper
+    src: S-0012
 
 techniques:
   # T1584 (Compromise Infrastructure): S-0007 describes using

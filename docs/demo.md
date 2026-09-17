@@ -1,85 +1,69 @@
 # The 90-second demo
 
-Three real commands, terminal only, no slides — per
-`strata-engineering-spec.md` §14. All three run against the actual local
-graph; nothing here is staged or mocked.
+Real commands, terminal + browser, no slides. Everything runs against the
+actual local graph; nothing here is staged or mocked.
 
 ```bash
 uv run strata collect --source kev
-uv run strata hunt run H004
-uv run strata export storm --out data/export/strata.storm && head -40 data/export/strata.storm
+uv run strata build
+uv run strata ui
 ```
 
-(The spec's own §14 script writes `--source cisa-kev` and
-`strata export storm | head -40`; this implementation's actual
-`SourceChoice` enum value is `kev` — see `cli.py`'s `_COLLECTOR_REGISTRY`
-— and `strata export storm` writes to a file rather than stdout, so the
-second command pipes to `head` after the fact. Both are the real,
-runnable commands for this codebase, not the spec's illustrative
-phrasing.)
+## Why these three
 
-## Why these three, and one honest adjustment from the spec
-
-**1. `strata collect --source cisa-kev`** — pulls the live CISA Known
+**1. `strata collect --source kev`** — pulls the live CISA Known
 Exploited Vulnerabilities catalog over HTTPS, through the egress
 allowlist (`net.py`), and writes real advisory data into the local SQLite
 graph. This is the "collection with provenance" half of the pitch: every
 row this writes cites a real `source` row with a fetch timestamp and, on
 a fresh fetch, a SHA-256 of the payload.
 
-**2. `strata hunt run H004`** — the spec's own §14 script names H004 as
-the hunt to lead with, on the expectation it would come back **REFUTED**
-("Godzilla and GLASSTOKEN appear across clusters"). Running the real
-pipeline against the real, hand-curated 8-group corpus, **H004 actually
-comes back INSUFFICIENT, not REFUTED** — the corpus's `uses` edges show
-17 tool/group pairings with zero tools shared across groups, but that
-absence is a function of a small, hand-curated, single-source-per-group
-sample (each group's tooling is cited to one Dragos page), not a
-statistically supported claim that tool choice is truly group-distinctive
-in the real world. Publicly reported cases like China-Chopper turning up
-across multiple unrelated Chinese state clusters directly argue the other
-way. Reporting this as REFUTED (or, worse, as SUPPORTED) would overclaim
-from n=17 hand-curated edges — so the hunt's own `insufficient_if:
-n_tools_compared < 20` threshold catches it honestly. **This is still the
-right hunt to lead with**: saying "I expected this to plausibly refute
-group-distinctive attribution, the data said the sample can't support
-either conclusion, and here's exactly why" is a stronger interview signal
-than a clean REFUTED would have been — it demonstrates the same
-falsifiable-hypothesis discipline the spec is testing for, plus the
-extra step of recognizing when your own sample size doesn't license a
-verdict either way.
+**2. `strata build`** — loads the 26-group, hand-curated Dragos
+threat-group corpus (every fact individually cited to
+`corpus/citations.yaml`) and runs the enrichment passes: the ICS protocol
+classifier, Purdue-level product mapping, the weaponization timeline, and
+the MITRE ATT&CK technique/software cross-reference.
 
-(H005 — "ransomware affecting industrials shows no ICS-native protocol
-involvement" — is the other hunt worth having in your back pocket: it
-comes back **SUPPORTED**, a real, computable negative result over 357
-KEV-flagged ransomware CVEs and 0 of them among the corpus's 3
-protocol-involving CVEs. Run `uv run strata hunt run H005` as a follow-up
-if asked for a SUPPORTED example instead of an INSUFFICIENT one.)
+**3. `strata ui`** — opens the read-only dashboard. Walk through:
+- **Threat Groups** — pick a real, currently-active group (e.g. VOLTZITE
+  or KAMACITE) and show the real cited targets/tools/techniques, with the
+  live MITRE ATT&CK link on a technique.
+- **Analytical Frameworks** — the ICS Cyber Kill Chain stage badges,
+  Purdue-level CVE-mass chart, and the Pyramid of Pain honesty mapping
+  (this project has real strength at Tools/TTPs and zero at the IOC
+  layers — by design, since it never handles malware samples).
+- **Threat Hunt Template / Examples** — the reusable hypothesis-driven
+  hunting worksheet (hypothesis → Collection Management Framework mapping
+  → execution → PROVED/DISPROVED/INCONCLUSIVE), applied for real against
+  AZURITE/VOLTZITE/PYROXENE's actual cited data.
 
-**3. `strata export storm --out ... && head -40 ...`** — generates a Synapse Storm
-ingest script from the real graph (group/vuln/tool/technique nodes and
-their `hands_off_to`/`uses`/`exploits`/`implements` edges) and prints the
-first 40 lines. This is not executed against a real Cortex — it is
-generated and syntax-checked (see `docs/storm-queries.md` for the paired
-queries you would run once ingested) — but it proves the data model maps
-cleanly onto a real TIP's ingest format, without needing to stand one up
-for the interview.
+## Why there's no automated "hunt board"
+
+An earlier iteration of this project computed ten falsifiable hunts
+directly against the graph and rendered a SUPPORTED/REFUTED/INSUFFICIENT
+board. That was removed: a *true* threat hunt needs first-party
+telemetry (host/network logs, EDR, identity data) to actually prove or
+disprove a hypothesis — this project only ever aggregates and correlates
+public, open-source reporting, which cannot itself constitute a completed
+hunt no matter how the verdict math is dressed up. Presenting a
+computed-from-public-data board as if it were real hunt outcomes would
+have been a more subtle version of exactly the overclaiming this project
+otherwise refuses to do. The real value that remains — provenance-tracked
+aggregation, real external citations, and a reusable methodology
+worksheet for when you *do* have first-party data — is what "What it
+shows" in the README and this demo script actually walk through.
 
 ## The one-line pitch
 
-*"I read the Year in Review, and built the tracking pipeline I'd want on
-day one — collection with provenance, ten falsifiable hunts, and an
-honestly mixed board: four supported, one refuted, and five reported
-INSUFFICIENT rather than forced to a verdict the data can't support. That
-last part is the point — a board that's all green is evidence of a
-curated dataset, not a good analyst."*
-
-(This is the honest version of the spec's own illustrative pitch, which
-guessed "four of which came back refuted" before any real data existed.
-The real board is 4 SUPPORTED / 1 REFUTED / 5 INSUFFICIENT — arguably a
-*stronger* honesty signal than the spec's hypothetical, since reporting
-five INSUFFICIENT verdicts instead of forcing them into REFUTED/SUPPORTED
-is exactly the discipline the role is testing for.)
+*"I read the Year in Review, and built the tracking and correlation
+pipeline I'd want on day one: a provenance-tracked graph joining public
+OT/ICS vulnerability data to all 26 Dragos-tracked threat groups' real,
+individually-cited behavior, plus the analyst frameworks (Kill Chain,
+Purdue, Pyramid of Pain) applied honestly to what that data can and can't
+support. I also built and then deliberately removed an automated
+'hunt board' once I recognized it was dressing up open-source
+correlation as if it were a completed threat hunt — that's the kind of
+overclaiming this whole project exists to avoid."*
 
 ## The question to ask them
 
@@ -92,10 +76,9 @@ taxonomy, and it makes the conversation a peer conversation.
 ## Legal and ethical framing — say this before anyone asks
 
 This repository reproduces no proprietary threat-intelligence report
-content. Threat group names (SYLVANITE, VOLTZITE, KAMACITE, ELECTRUM,
-AZURITE, PYROXENE, BAUXITE, PARISITE) are public nomenclature, used with
-attribution to Dragos's own public threat-group pages
-(`dragos.com/threat/*`) — every corpus assertion cites a publicly
+content. Threat group names (all 26 Dragos-tracked groups) are public
+nomenclature, used with attribution to Dragos's own public threat-group
+pages (`dragos.com/threat/*`) — every corpus assertion cites a publicly
 accessible source (`corpus/citations.yaml`). No active scanning of any
 kind is performed, ever — only HTTPS GETs to a static allowlist of public
 feed hosts (`net.py`, `config/allowlist.txt`). No malware samples are

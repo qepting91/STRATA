@@ -1,0 +1,25 @@
+# HEXANE: ICS reconnaissance operator via third-party telecom access.
+#
+# All facts sourced to Dragos's public HEXANE page (S-0021). No ICS
+# kill-chain stage is explicitly stated on the page, so
+# `ics_kill_chain_stage` is left null. Only Kuwait is specifically
+# named among the vaguer "Middle East/Central Asia/Africa" targeting
+# description, so only KW is recorded in `targets.geos`. No named
+# malware family is given (only "malicious MS Excel documents
+# containing embedded binaries"), so `tools` is left empty.
+id: hexane
+name: HEXANE
+naming_org: Dragos
+role: ics_reconnaissance_operator
+
+targets:
+  sectors: [oil_gas, telecommunications]
+  geos: [KW]
+  src: S-0021
+
+techniques:
+  # T1566.001 (Spearphishing Attachment): S-0021 describes delivery via
+  # "malicious MS Excel documents containing embedded binaries."
+  - attack_id: T1566.001
+    matrix: enterprise
+    src: S-0021

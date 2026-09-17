@@ -1,0 +1,49 @@
+# Synthetic fixture for HuntHypothesis loader/UI tests -- NOT a real
+# STRATA corpus example. group_id "test-group" does not correspond to
+# any real Dragos-tracked threat group; src values below cite the
+# synthetic tests/fixtures/corpus/citations.yaml registry used by
+# test_corpus_loader.py, not the real corpus/citations.yaml.
+group_id: test-group
+hypothesis_statement: >
+  TEST-GROUP maintains SOCKS/SOCKS5 tunnels to bridge compromised IT
+  jump hosts into segmented OT networks, consistent with its
+  documented reliance on living-off-the-land tunneling tools.
+src: S-TEST-1
+pir_reference: >
+  Illustrative PIR: "Will TEST-GROUP re-establish OT network access via
+  tunneling infrastructure within the next collection cycle?"
+cmf_notes:
+  - hunt_step: >
+      Enumerate outbound proxy/tunnel-tool process execution on IT/OT
+      boundary hosts.
+    strata_coverage: >
+      NOT modeled in STRATA's graph -- needs real host process-execution
+      telemetry, which this project never collects (see the Visibility
+      Gaps page's telemetry matrix row for this exact gap).
+    src: S-TEST-1
+  - hunt_step: >
+      Cross-reference TEST-GROUP's known tool set against the current
+      hunt scope.
+    strata_coverage: >
+      Partially modeled -- STRATA's corpus tool/uses edges name
+      TEST-GROUP's cited tools, but do not carry version or
+      configuration detail an analyst would need to fingerprint a live
+      tunnel.
+  - hunt_step: >
+      Confirm whether any of TEST-GROUP's cited CVEs affect a
+      Purdue-classified edge device in scope.
+    strata_coverage: >
+      Modeled directly -- STRATA's affects/exploits edges plus
+      enrich/purdue.py's product classification can answer this
+      directly from the graph.
+outcome_criteria:
+  proved: >
+    A TEST-GROUP exploits edge exists with a first_seen date, and the
+    corresponding product's purdue_level attr is present and matches
+    the hunt's declared scope.
+  disproved: >
+    The hunt's scoped time window closes with no qualifying exploits
+    edge or tool/uses edge found for TEST-GROUP within the graph.
+  inconclusive: >
+    STRATA's graph has no exploits or uses edges for TEST-GROUP at all
+    (a corpus coverage gap, not a negative finding).
