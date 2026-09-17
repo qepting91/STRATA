@@ -365,6 +365,122 @@ def get_all_products(conn: sqlite3.Connection) -> list[dict]:
     return products
 
 
+def get_all_group_nodes(conn: sqlite3.Connection) -> list[dict]:
+    """Return every ``group``-type node as a dict with parsed attrs.
+
+    Used by the Streamlit UI's Threat Groups page (``ui/data.py``) to
+    populate the group picker without duplicating this query per caller.
+
+    Returns:
+        A list of ``{"id": ..., "label": ..., "attrs": {...} | None}``
+        dicts, one per ``group`` node, ordered by id.
+    """
+    rows = conn.execute(
+        "SELECT id, label, attrs FROM node WHERE type = 'group' ORDER BY id"
+    ).fetchall()
+    groups: list[dict] = []
+    for row in rows:
+        attrs = None
+        if row["attrs"] is not None:
+            try:
+                attrs = json.loads(row["attrs"])
+            except json.JSONDecodeError:
+                attrs = None
+        groups.append({"id": row["id"], "label": row["label"], "attrs": attrs})
+    return groups
+
+
+def get_outgoing_edges(
+    conn: sqlite3.Connection, src_id: str, edge_types: list[str] | None = None
+) -> list[dict]:
+    """Return every edge whose ``src_id`` matches, joined with the
+    destination node's type/label, optionally filtered by edge type.
+
+    Used by the Streamlit UI (Threat Groups page) to render a group's
+    exploits/tools/techniques/handoffs with each row's destination and
+    provenance, without hand-rolling the join per page. Parameterized
+    throughout -- ``edge_types``, if given, is bound via placeholders,
+    never string-interpolated.
+
+    Args:
+        conn: Open database connection.
+        src_id: The source node id (e.g. a group id).
+        edge_types: Optional list of edge types to restrict to. ``None``
+            returns every outgoing edge regardless of type.
+
+    Returns:
+        A list of dicts: ``edge_id``, ``type``, ``dst_id``, ``dst_type``,
+        ``dst_label``, ``source_id``, ``note``.
+    """
+    query = (
+        "SELECT e.id AS edge_id, e.type AS type, e.dst_id AS dst_id, "
+        "n.type AS dst_type, n.label AS dst_label, e.source_id AS source_id, "
+        "e.note AS note "
+        "FROM edge e JOIN node n ON n.id = e.dst_id "
+        "WHERE e.src_id = ?"
+    )
+    params: list[str] = [src_id]
+    if edge_types:
+        placeholders = ",".join("?" for _ in edge_types)
+        query += f" AND e.type IN ({placeholders})"
+        params.extend(edge_types)
+    query += " ORDER BY e.type, e.dst_id"
+
+    rows = conn.execute(query, params).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_incoming_edges(
+    conn: sqlite3.Connection, dst_id: str, edge_types: list[str] | None = None
+) -> list[dict]:
+    """Return every edge whose ``dst_id`` matches, joined with the source
+    node's type/label, optionally filtered by edge type.
+
+    The mirror of ``get_outgoing_edges`` -- used by the Threat Groups page
+    to show handoffs *received* by a group (e.g. voltzite receiving from
+    sylvanite), which are declared on the sender's corpus file, not the
+    receiver's.
+
+    Args:
+        conn: Open database connection.
+        dst_id: The destination node id (e.g. a group id).
+        edge_types: Optional list of edge types to restrict to.
+
+    Returns:
+        A list of dicts: ``edge_id``, ``type``, ``src_id``, ``src_type``,
+        ``src_label``, ``source_id``, ``note``.
+    """
+    query = (
+        "SELECT e.id AS edge_id, e.type AS type, e.src_id AS src_id, "
+        "n.type AS src_type, n.label AS src_label, e.source_id AS source_id, "
+        "e.note AS note "
+        "FROM edge e JOIN node n ON n.id = e.src_id "
+        "WHERE e.dst_id = ?"
+    )
+    params: list[str] = [dst_id]
+    if edge_types:
+        placeholders = ",".join("?" for _ in edge_types)
+        query += f" AND e.type IN ({placeholders})"
+        params.extend(edge_types)
+    query += " ORDER BY e.type, e.src_id"
+
+    rows = conn.execute(query, params).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_source(conn: sqlite3.Connection, source_id: str) -> dict | None:
+    """Return one ``source`` row as a dict, or None if it does not exist.
+
+    Used by ``ui/components/source_footer.py`` to render provenance
+    (name/url/fetched_at) for any displayed claim, given its ``source_id``.
+    """
+    row = conn.execute(
+        "SELECT id, name, url, fetched_at, sha256, http_status FROM source WHERE id = ?",
+        (source_id,),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
 def insert_signal(
     conn: sqlite3.Connection,
     *,

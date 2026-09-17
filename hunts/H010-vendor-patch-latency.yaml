@@ -1,0 +1,31 @@
+id: H010
+title: Vendor patch latency for OT-relevant CVEs varies by more than 30 days across vendors
+hypothesis: >
+  Patch latency (disclosure to vendor fix availability) for OT-relevant
+  CVEs varies by more than 30 days across major vendors -- naming names,
+  with dates.
+rationale: >
+  If patch latency varies materially by vendor, that is directly
+  actionable procurement/risk-acceptance guidance, distinct from the
+  generic "patch faster" advice.
+null_hypothesis: >
+  No cross-vendor patch-latency comparison can be made because no
+  per-vendor disclosure-date data exists in the graph.
+method: sql
+query: |
+  SELECT COUNT(DISTINCT name) AS n_vendors_with_data
+  FROM source
+  WHERE name IN (
+    'siemens-psirt', 'schneider-psirt', 'hitachi-psirt',
+    'cisco-psirt', 'paloalto-psirt', 'fortinet-psirt', 'ivanti-psirt'
+  )
+falsifies_if: "n_vendors_with_data >= 2"
+insufficient_if: "n_vendors_with_data < 2"
+telemetry_gap: >
+  No vendor-PSIRT collector was ever built (Siemens/Schneider/Hitachi/
+  Cisco/Palo Alto/Fortinet/Ivanti were all deliberately deferred every
+  week, see SOURCES.md) -- no per-vendor disclosure-date data exists
+  anywhere in the schema to compare latency across vendors. The
+  patch_available_at_kev metric (H003) is a proxy for "an advisory or
+  NVD record existed before KEV listing", not a per-vendor patch-release
+  date, and cannot substitute for this hunt's actual question.

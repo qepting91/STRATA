@@ -1,0 +1,28 @@
+id: H006
+title: Cellular gateway product families targeted by two or more unrelated clusters
+hypothesis: >
+  Cellular-gateway product families (Purdue level 3.5, class
+  cellular_gateway) are targeted by two or more unrelated state-linked
+  clusters -- convergence that would argue for treating cellular gateways
+  as a class, not chasing single-vendor collection bias.
+rationale: >
+  If distinct clusters independently converge on cellular gateways
+  specifically (not just edge devices broadly), that argues for a
+  dedicated collection/monitoring investment in that product class.
+null_hypothesis: >
+  Fewer than two distinct groups have confirmed exploits reaching a
+  cellular-gateway-classed product in the corpus.
+method: python
+python_fn: h006_cellular_gateway_convergence
+falsifies_if: "n == 0"
+insufficient_if: "n < 2"
+telemetry_gap: >
+  Purdue-level classification covers only 86 of 2859 product nodes
+  (config/purdue_map.yaml's hand-curated vendor/product mapping), and the
+  exploits edge set only reaches sylvanite's 5 Ivanti/SAP CVEs -- none of
+  which affect a cellular-gateway-classed product. A real cellular-
+  gateway convergence (e.g. against Sierra Wireless AirLink, which is
+  mapped in purdue_map.yaml) could exist in the world without appearing
+  here, since no group in this corpus has publicly attributed
+  cellular-gateway exploitation. n=0 here reflects sourcing coverage, not
+  a refutation of the underlying convergence hypothesis.

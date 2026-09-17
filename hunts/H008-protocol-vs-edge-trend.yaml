@@ -1,0 +1,26 @@
+id: H008
+title: ICS-protocol-native CVE volume is flat while edge CVE volume grows
+hypothesis: >
+  Year-over-year, the count of CVEs involving an ICS-native protocol
+  (Modbus, S7comm, DNP3, etc.) is flat, while the count of CVEs affecting
+  Purdue-3.5-classified edge products grows.
+rationale: >
+  If true, this argues that the growing CVE workload for OT-adjacent
+  defenders is concentrated in edge/IT-boundary products, not in
+  protocol-native ICS vulnerabilities -- a trend-analysis argument for
+  where to grow monitoring capability.
+null_hypothesis: >
+  There are too few protocol-involving CVEs in the corpus to support any
+  year-over-year trend claim at all.
+method: python
+python_fn: h008_protocol_vs_edge_cve_trend
+falsifies_if: "n_protocol_cves >= n_edge_cves"
+insufficient_if: "n_protocol_cves < 10"
+telemetry_gap: >
+  The involves edge set has only 3 members total (all EtherNet/IP, from
+  the protocol classifier's real matches against NVD descriptions) -- a
+  3-point series cannot support a trend claim in either direction,
+  flat or otherwise. This is a direct consequence of the protocol
+  classifier being scoped to CVE description text only (no CSAF
+  product-tree matching, a documented Week 3 gap), not evidence the
+  underlying trend claim is false.

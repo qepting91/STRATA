@@ -1,0 +1,19 @@
+# STRATA Streamlit hardening config (spec section 15.4). Every value here
+# is load-bearing, not decorative -- see src/strata/ui/app.py's module
+# docstring and SECURITY.md for the reasoning.
+
+[server]
+address = "127.0.0.1"
+port = 8501
+headless = true
+enableCORS = false
+enableXsrfProtection = true
+enableStaticServing = false
+fileWatcherType = "none"
+maxUploadSize = 1
+
+[browser]
+# Non-negotiable: Streamlit reports telemetry to a remote endpoint by
+# default, which would directly contradict this project's local-only
+# claim -- the first thing a reviewer would check.
+gatherUsageStats = false

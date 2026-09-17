@@ -7,9 +7,11 @@ command, closing the gap intentionally left open since Week 1).
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from datetime import date, datetime
 from enum import StrEnum
+from pathlib import Path
 
 import typer
 
@@ -28,8 +30,16 @@ from strata.enrich import consensus as enrich_consensus
 from strata.enrich import protocol as enrich_protocol
 from strata.enrich import purdue as enrich_purdue
 from strata.enrich import timeline as enrich_timeline
+from strata.export.graph_render import render_handoff_graph
+from strata.export.jsonld import build_jsonld
+from strata.export.stix import build_stix_bundle
+from strata.export.storm import generate_storm
+from strata.hunt.graph_ops import descendants_within
+from strata.hunt.runner import build_projection, load_all_hunts, load_hunt, run_hunt
+from strata.hunt.verdicts import evaluate_verdict, render_hunt_result
 from strata.model import store
 from strata.normalize.corpus import CorpusLoadError, load_corpus
+from strata.report.render import write_report
 from strata.settings import Settings, get_settings
 
 app = typer.Typer(help="STRATA - local-only OT/ICS threat-capability tracking pipeline.")
@@ -299,6 +309,254 @@ def build(
         typer.echo(f"  {row['product_id']:<30} groups={row['group_count']}")
 
     conn.close()
+
+
+hunt_app = typer.Typer(help="Load and run curated threat hunts (spec section 7).")
+app.add_typer(hunt_app, name="hunt")
+
+
+@hunt_app.command("list")
+def hunt_list(
+    hunts_dir: str = typer.Option("hunts", "--hunts-dir", help="Hunt YAML directory."),
+) -> None:
+    """List every hunt's id and title, sorted by id."""
+    hunts = load_all_hunts(hunts_dir)
+    for h in hunts:
+        typer.echo(f"{h.id:<6} {h.title}")
+
+
+class HuntOutputFormat(StrEnum):
+    """Valid values for `strata hunt run --format`."""
+
+    table = "table"
+    json = "json"
+
+
+_HUNT_FORMAT_OPTION = typer.Option(HuntOutputFormat.table, "--format", help="table or json.")
+
+
+@hunt_app.command("run")
+def hunt_run(
+    hunt_id: str | None = typer.Argument(
+        None, help="Hunt id to run, e.g. H001. Omit with --all to run every hunt."
+    ),
+    all_hunts: bool = typer.Option(False, "--all", help="Run every hunt in id order."),
+    output_format: HuntOutputFormat = _HUNT_FORMAT_OPTION,
+    hunts_dir: str = typer.Option("hunts", "--hunts-dir", help="Hunt YAML directory."),
+) -> None:
+    """Run one hunt (by id) or every hunt (--all) and print its verdict.
+
+    Refuted and insufficient verdicts are printed with equal prominence to
+    supported ones -- per spec section 7.3, a board that is all green is
+    evidence of a curated dataset, not a good analyst.
+    """
+    if not all_hunts and hunt_id is None:
+        raise typer.BadParameter("Provide a hunt id or pass --all.")
+
+    settings = get_settings()
+    conn = store.get_connection(settings.db_path)
+
+    if all_hunts:
+        hunts = load_all_hunts(hunts_dir)
+    else:
+        matches = [p for p in Path(hunts_dir).glob(f"{hunt_id}-*.yaml")]
+        if not matches:
+            conn.close()
+            raise typer.BadParameter(f"No hunt YAML found for id {hunt_id!r} in {hunts_dir!r}.")
+        hunts = [load_hunt(matches[0])]
+
+    results = []
+    for h in hunts:
+        result = run_hunt(conn, h)
+        verdict = evaluate_verdict(result.namespace, h.insufficient_if, h.falsifies_if)
+        results.append((h, result.namespace, verdict))
+
+    conn.close()
+
+    if output_format == HuntOutputFormat.json:
+        import json as _json
+
+        typer.echo(
+            _json.dumps(
+                [
+                    {
+                        "id": h.id,
+                        "title": h.title,
+                        "verdict": verdict,
+                        "namespace": {k: v for k, v in ns.items() if k != "rows"},
+                    }
+                    for h, ns, verdict in results
+                ],
+                indent=2,
+                default=str,
+            )
+        )
+        return
+
+    for h, ns, verdict in results:
+        typer.echo(render_hunt_result(h, ns, verdict))
+        typer.echo("")
+
+
+export_app = typer.Typer(help="Export the graph to Storm/STIX/JSON-LD (spec section 8).")
+app.add_typer(export_app, name="export")
+
+
+@export_app.command("storm")
+def export_storm(
+    out: str = typer.Option("data/export/strata.storm", "--out", help="Output .storm path."),
+) -> None:
+    """Generate a .storm file (group/vuln/tool/technique nodes + their real edges).
+
+    Not executed against a real Synapse Cortex -- generated and
+    syntax-checked only (see docs/storm-queries.md for paired queries).
+    """
+    settings = get_settings()
+    conn = store.get_connection(settings.db_path)
+    text = generate_storm(conn)
+    conn.close()
+
+    out_path = Path(out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(text, encoding="utf-8")
+    typer.echo(f"Wrote {out_path} ({len(text)} bytes)")
+
+
+@export_app.command("stix")
+def export_stix(
+    out: str = typer.Option(
+        "data/export/strata.stix.json", "--out", help="Output STIX bundle JSON path."
+    ),
+) -> None:
+    """Generate a STIX 2.1 bundle (intrusion-set/malware/tool/attack-pattern/
+    vulnerability/relationship objects) from the real graph."""
+    settings = get_settings()
+    conn = store.get_connection(settings.db_path)
+    bundle = build_stix_bundle(conn)
+    conn.close()
+
+    text = bundle.serialize(pretty=True)
+    out_path = Path(out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(text, encoding="utf-8")
+    typer.echo(f"Wrote {out_path} ({len(bundle.objects)} STIX objects, {len(text)} bytes)")
+
+
+@export_app.command("jsonld")
+def export_jsonld(
+    out: str = typer.Option(
+        "data/export/strata.jsonld", "--out", help="Output JSON-LD path."
+    ),
+) -> None:
+    """Dump the raw graph (every node + edge) as JSON-LD."""
+    import json as _json
+
+    settings = get_settings()
+    conn = store.get_connection(settings.db_path)
+    doc = build_jsonld(conn)
+    conn.close()
+
+    text = _json.dumps(doc, indent=2, default=str)
+    out_path = Path(out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(text, encoding="utf-8")
+    typer.echo(f"Wrote {out_path} ({len(doc['@graph'])} graph entries, {len(text)} bytes)")
+
+
+@app.command()
+def report(
+    hunts_dir: str = typer.Option("hunts", "--hunts-dir", help="Hunt YAML directory."),
+    corpus_dir: str = typer.Option("corpus", "--corpus-dir", help="Corpus root directory."),
+    out_dir: str = typer.Option("reports", "--out-dir", help="Directory for the rendered report."),
+) -> None:
+    """Render reports/<date>-ot-capability-assessment.md from the real graph.
+
+    Re-runs every hunt in hunts_dir against the live database and renders
+    the spec section 12 7-section report (key judgements, scope and
+    method, findings for all 10 hunts, capability handoff model,
+    visibility gaps, confidence/limitations, appendix) via Jinja2 --
+    see report/render.py.
+    """
+    settings = get_settings()
+    conn = store.get_connection(settings.db_path)
+    out_path = write_report(conn, hunts_dir=hunts_dir, corpus_dir=corpus_dir, out_dir=out_dir)
+    conn.close()
+    typer.echo(f"Wrote {out_path}")
+
+
+graph_app = typer.Typer(help="Traverse and render the graph (reuses hunt/graph_ops.py).")
+app.add_typer(graph_app, name="graph")
+
+
+@graph_app.command("show")
+def graph_show(
+    group: str = typer.Option(..., "--group", help="Source group id, e.g. sylvanite."),
+    depth: int = typer.Option(2, "--depth", help="Max traversal hops."),
+    out_dir: str = typer.Option(
+        "data/export", "--out-dir", help="Directory for the rendered handoff-model graph."
+    ),
+    render_handoff: bool = typer.Option(
+        False, "--render-handoff", help="Also write the group hands_off_to model to DOT/PNG."
+    ),
+) -> None:
+    """Print a bounded Stage N+1 capability traversal from a Stage 1 group.
+
+    Reuses hunt/graph_ops.py's descendants_within over the same
+    projection H009 uses (group/tool/vuln/product nodes via
+    hands_off_to/uses/exploits edges).
+    """
+    settings = get_settings()
+    conn = store.get_connection(settings.db_path)
+
+    projection = build_projection(
+        conn, ["group", "tool", "vuln", "product"], ["hands_off_to", "uses", "exploits"]
+    )
+    result = descendants_within(
+        projection, source=group, depth=depth, via=["hands_off_to", "uses", "exploits"]
+    )
+
+    typer.echo(f"Traversal from {group!r} (depth<={depth}, via hands_off_to/uses/exploits):")
+    if not result["source_present"]:
+        typer.echo(f"  {group!r} not found in the graph.")
+    else:
+        typer.echo(f"  reachable nodes: {result['n']}")
+        typer.echo(f"  by type: {result['by_type']}")
+        for node_id in result["reachable_nodes"]:
+            typer.echo(f"    {node_id}")
+
+    if render_handoff:
+        render_result = render_handoff_graph(conn, out_dir)
+        typer.echo(f"\nHandoff model graph: {render_result}")
+
+    conn.close()
+
+
+@app.command()
+def ui() -> None:
+    """Launch the read-only Streamlit dashboard (spec section 15).
+
+    Shells out to `streamlit run src/strata/ui/app.py`, passing the
+    resolved db_path through STRATA_DB_PATH (Streamlit pages don't
+    receive CLI args directly). This is the only place in the whole
+    project that runs a subprocess for the UI -- the UI package itself
+    never shells out or writes to the database; `.streamlit/config.toml`
+    enforces the hardening posture (127.0.0.1-only, no telemetry).
+    """
+    import subprocess
+    import sys
+
+    settings = get_settings()
+    app_path = Path(__file__).parent / "ui" / "app.py"
+
+    env = os.environ.copy()
+    env["STRATA_DB_PATH"] = str(settings.db_path)
+
+    typer.echo(f"Launching Streamlit UI ({app_path}) against {settings.db_path} ...")
+    subprocess.run(
+        [sys.executable, "-m", "streamlit", "run", str(app_path)],
+        env=env,
+        check=False,
+    )
 
 
 if __name__ == "__main__":

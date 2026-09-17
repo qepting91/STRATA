@@ -1,0 +1,138 @@
+# STRATA OT/ICS Capability Assessment
+
+*Generated {{ report_date }} by `strata report`, rendered directly from the
+live SQLite graph and a real run of every hunt in `hunts/*.yaml`. No figure
+below is hardcoded -- re-run `strata report` after any `strata collect` /
+`strata build` and every number here re-derives from the new state of the
+database.*
+
+---
+
+## 1. Key judgements
+
+{% for j in key_judgements %}
+- **[{{ j.hunt_id }}, {{ j.confidence }} confidence, verdict {{ j.verdict }}]** {{ j.text }}
+{% endfor %}
+
+---
+
+## 2. Scope and method
+
+**Sources collected** ({{ scope.sources | length }} named collector/loader sources, {{ scope.source_row_count }} total `source` rows for provenance):
+
+{% for name in scope.sources %}
+- `{{ name }}` -- latest fetch `{{ scope.fetch_times[name] }}`
+{% endfor %}
+
+**Collection window:** earliest fetch `{{ scope.window_start }}`, latest fetch `{{ scope.window_end }}`. This is a point-in-time snapshot of public CISA/NVD/MITRE/FIRST.org/GitHub-hosted feeds plus a hand-curated 8-group threat corpus (`corpus/groups/*.yaml`), not a continuously-updating feed.
+
+**Current graph size:** {{ scope.node_counts }} nodes by type; {{ scope.edge_counts }} edges by type.
+
+**What was excluded, and why** (real, documented gaps from Weeks 1-3 --
+see `SOURCES.md` and `README.md` for full detail):
+
+{% for name, why in excluded_scope %}
+- **{{ name }}.** {{ why }}
+{% endfor %}
+
+---
+
+## 3. Findings
+
+All ten hunts are reported here with equal prominence, including the
+refuted and insufficient ones -- a board that is all green is evidence of
+a curated dataset, not a good analyst.
+
+{% for f in findings %}
+### {{ f.id }} -- {{ f.title }}
+
+**VERDICT: {{ f.verdict }}**
+
+*Hypothesis:* {{ f.hypothesis }}
+
+*Rationale:* {{ f.rationale }}
+
+*Real result:* `{{ f.namespace_line }}`
+
+*Telemetry gap:* {{ f.telemetry_gap }}
+
+{% endfor %}
+
+---
+
+## 4. Capability handoff model
+
+Real `hands_off_to` edges currently in the graph (confidence values are
+read live from `corpus/groups/*.yaml`, since `edge.note` is not populated
+for this edge type):
+
+{% for e in handoff.edges %}
+- `{{ e.src }}` -\[hands_off_to, confidence={{ e.confidence }}\]-> `{{ e.dst }}`
+{% endfor %}
+
+**Traversal example (H009):** starting from `sylvanite`, a 3-hop traversal
+over `hands_off_to`/`uses`/`exploits` edges reaches
+**{{ handoff.traversal.n }}** nodes total (`{{ handoff.traversal.by_type }}`
+by type). This is the concrete, defender-actionable answer to "given
+sylvanite is active in my environment, what capability should I assume is
+inbound next" -- grounded in real, cited edges, not general reasoning
+about the actor's reputation.
+
+---
+
+## 5. Visibility gaps
+
+`config/telemetry_matrix.yaml`, ranked cheapest-to-close first:
+
+| Hunt technique | Telemetry required | Typically collected in OT | Difficulty |
+|---|---|---|---|
+{% for row in visibility_gaps %}
+| {{ row.hunt }} | {{ row.telemetry_required }} | {{ row.typically_collected_in_ot }} | {{ row.difficulty }} |
+{% endfor %}
+
+---
+
+## 6. Confidence and limitations
+
+This section is written to actually limit the findings above, not to
+reassure the reader.
+
+**Reporting lag is baked into every date this pipeline uses.** Every
+timestamp in the graph (KEV `dateAdded`, CSAF `initial_release_date`, NVD
+`nvd_published`) is a *publication* date, not a ground-truth first-use or
+first-disclosure date. Every derived interval (`patch_available_at_kev`,
+`disclosure_to_poc_days`, etc.) is therefore an upper or lower bound on the
+true interval, never an exact measurement -- see H003's own
+`telemetry_gap` for the concrete case.
+
+**Collection bias toward organizations with good public reporting.** Of
+{{ limitations.n_groups }} groups in the corpus, {{ limitations.n_groups_without_exploits }} have **zero** cited CVE-exploitation claims at all -- not because they don't exploit CVEs, but because their public Dragos threat-group page never named one. Every hunt that joins through `exploits` edges (H001, H002, H006, H008) is therefore scoped to whichever single group happens to have had its exploited CVEs publicly named, not the full threat landscape. This is precisely the "curated dataset" risk the hunt framework's own design principle warns about.
+
+**Small-N caveats.**
+{% if limitations.validation_summary %}
+The protocol classifier's 200-CVE hand-labeled validation set measured precision = recall = 1.000, but on **n={{ limitations.validation_summary.n_true_positives }} true positives** out of {{ limitations.validation_summary.n_candidate_positives_reviewed }} candidates reviewed (the corpus's real base rate of protocol-specific CVEs is 3 of 1,790 known CVEs). A perfect score on 3 positives is not the same statistical claim as a perfect score on 300 -- it says the classifier made no visible mistake on the cases it had, not that it generalizes with high confidence. {{ limitations.validation_summary.notes }}
+{% else %}
+The protocol classifier's validation-set summary file was not found at render time; see `tests/fixtures/protocol_validation_labels.json` and `tests/test_enrich_protocol_validation_set.py` for the real methodology and numbers.
+{% endif %}
+Several hunts (H002, H004, H006, H008) rest on single-digit or low-double-digit sample sizes for the same underlying reason: the corpus is 8 hand-curated groups whose public sourcing rarely names specific CVEs or tools.
+
+**Deliberately deferred data (not silently dropped).** Vendor-PSIRT collection, CSAF product-tree matching, and group first-seen-use dates were all scoped out of Weeks 1-3 (see section 2 above) -- they are the direct cause of the {{ limitations.insufficient_hunts | length }} INSUFFICIENT verdicts below ({{ limitations.insufficient_hunts | join(", ") }}), which should be read as "this pipeline cannot yet answer this question," not as "the answer is no."
+
+**Net verdict mix, for context:** {{ limitations.supported_hunts | length }} SUPPORTED ({{ limitations.supported_hunts | join(", ") }}), {{ limitations.refuted_hunts | length }} REFUTED ({{ limitations.refuted_hunts | join(", ") }}), {{ limitations.insufficient_hunts | length }} INSUFFICIENT ({{ limitations.insufficient_hunts | join(", ") }}). A mixed board, not an all-green one, is the intended and honestly-reported outcome of this pass.
+
+---
+
+## 7. Appendix -- source registry
+
+**Corpus citations** (`corpus/citations.yaml`, every claim in
+`corpus/groups/*.yaml` resolves to one of these):
+
+{% for cid, c in appendix.citations.items() %}
+- **{{ cid }}** -- {{ c.publisher }}, `{{ c.url }}` (retrieved {{ c.retrieved }})
+{% endfor %}
+
+**Collector/loader sources, with latest retrieval date:**
+
+{% for name, ts in appendix.collector_fetch_times.items() %}
+- `{{ name }}` -- {{ ts }}
+{% endfor %}

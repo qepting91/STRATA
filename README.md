@@ -1,14 +1,17 @@
 # STRATA — OT/ICS Threat-Capability Tracking Pipeline
 
-**Weeks 1-3 of 4 ("spine" + "breadth" + "the original work").** A
-local-only, zero-cost pipeline that pulls public OT/ICS vulnerability
-advisories, exploitation signals (NVD, EPSS, PoC-in-GitHub, Exploit-DB,
-Nuclei, Metasploit), MITRE ATT&CK technique reference data, and a
-hand-curated 8-group threat corpus into a provenance-tracked SQLite
-graph, then enriches it: an ICS protocol classifier, Purdue-level
-product mapping, a weaponization timeline, and adversary-consensus
-scoring. See `strata-engineering-spec.md` for the full architecture,
-Week 4 scope (hunts, exports, Streamlit UI), and design rationale.
+**Weeks 1-4 of 4 ("spine" + "breadth" + "the original work" + "analysis
+and packaging").** A local-only, zero-cost pipeline that pulls public
+OT/ICS vulnerability advisories, exploitation signals (NVD, EPSS,
+PoC-in-GitHub, Exploit-DB, Nuclei, Metasploit), MITRE ATT&CK technique
+reference data, and a hand-curated 8-group threat corpus into a
+provenance-tracked SQLite graph; enriches it (an ICS protocol classifier,
+Purdue-level product mapping, a weaponization timeline, and
+adversary-consensus scoring); runs ten falsifiable hunts over it; and
+exports/reports on the result (Synapse Storm, STIX 2.1, JSON-LD, and a
+generated intel report). See `strata-engineering-spec.md` for the full
+architecture and design rationale, and `docs/demo.md` for a 90-second
+walkthrough.
 
 ## Why this exists — "RSS is dead"
 
@@ -137,6 +140,106 @@ vendor/product as the literal string `"none"` was fixed defensively.
 - One shared `source` row per KEV fetch (the KEV catalog is a single JSON
   payload covering all entries).
 
+## What's built (Week 4)
+
+- `hunt/` package — `hunt/models.py` (pydantic model for a `hunts/*.yaml`
+  file), `hunt/runner.py` (dispatches by `method: sql|graph|python`),
+  `hunt/graph_ops.py` (`descendants_within`, a NetworkX BFS for the
+  handoff-traversal hunt), `hunt/methods.py` (the 5 python-method hunts'
+  custom logic), `hunt/verdicts.py` (three-state verdict evaluation via
+  `simpleeval`, never Python `eval`). Ten curated hunts in `hunts/*.yaml`
+  (H001–H010, spec §7.4), each wired to a real query/traversal/function
+  over the actual graph — no hardcoded thresholds or fabricated numbers.
+  **Real board, run this week: 4 SUPPORTED (H003, H005, H007, H009), 1
+  REFUTED (H001), 5 INSUFFICIENT (H002, H004, H006, H008, H010)** — a
+  genuinely mixed board, not curated to look better than the data
+  supports. `strata hunt list`, `strata hunt run <ID> [--format table|json]`,
+  `strata hunt run --all`.
+- `export/` package — `export/storm.py` (a generated, syntax-checked
+  Synapse Storm script; paired queries in `docs/storm-queries.md`),
+  `export/stix.py` (a STIX 2.1 bundle, `intrusion-set`/`malware`/`tool`/
+  `attack-pattern`/`vulnerability`/`relationship`, validated with
+  `stix2-validator`), `export/jsonld.py` (a raw JSON-LD graph dump),
+  `export/graph_render.py` (a static Graphviz/DOT render of the
+  `hands_off_to` handoff model). `strata export {storm,stix,jsonld}
+  [--out PATH]`, `strata graph show --group sylvanite --depth 2`.
+- `report/render.py` + `report/templates/report.md.j2` — the spec §12
+  7-section intel report (key judgements, scope/method, findings for all
+  ten hunts, capability handoff model, visibility gaps, confidence and
+  limitations, appendix/source registry), rendered via Jinja2 directly
+  from a live run of every hunt plus the live graph — every figure in the
+  generated report is re-derived at render time, never hardcoded.
+  `strata report` writes `reports/<date>-ot-capability-assessment.md`.
+- `config/telemetry_matrix.yaml` — the spec §6.5 telemetry requirement
+  matrix (hunt technique → telemetry required → typical OT collection
+  status → difficulty), rendered ranked cheapest-to-close-first in the
+  report's "Visibility gaps" section.
+- `docs/demo.md` — the spec §14 90-second interview demo script, adapted
+  to what this implementation's real hunt board actually shows (see
+  below).
+
+## Limitations and known gaps
+
+This section consolidates the caveats already documented in detail across
+`README.md`'s per-feature notes above, `SOURCES.md`, and `SECURITY.md`,
+plus this week's hunt/report findings — read the linked section for the
+full story on any one item; this is the scannable summary.
+
+**Collection scope**
+- No vendor-PSIRT collector was ever built (Siemens/Schneider/Hitachi/
+  Cisco/Palo Alto/Fortinet/Ivanti — see SOURCES.md, "Deliberately not
+  collected"). There is no per-vendor patch-disclosure date anywhere in
+  the schema; this is the direct cause of H010's INSUFFICIENT verdict.
+- The CISA CSAF collector never extracts `product_tree` text, so the
+  protocol classifier (`enrich/protocol.py`) reads NVD CVE description
+  text only, not the fuller input set the spec's §6.2 describes.
+- CSAF file discovery is a most-recent-`N=25` sample with best-effort,
+  client-side `--since` filtering (see "CSAF file-discovery assumption"
+  above) — not a complete historical backfill.
+- `t_group_observed`/`disclosure_to_group_use` was never computed: the
+  corpus's group-entry format has no `first_seen` date on a group's
+  `exploits` claims. This is why H002 is INSUFFICIENT rather than merely
+  small-sample.
+
+**Corpus coverage**
+- Only **1 of 8** hand-curated groups (sylvanite) has any publicly named
+  exploited CVE at all — the other 7 groups' public Dragos threat pages
+  never name a specific CVE. Every hunt that joins through `exploits`
+  edges (H001, H002, H006, H008) is therefore scoped to whatever that one
+  group happens to have had reported, not the real threat landscape. This
+  is real collection bias toward whichever actor's activity got the most
+  detailed public writeup, not a property of the underlying world.
+- Purdue-level classification covers only 86 of 2,859 product nodes
+  (`config/purdue_map.yaml`'s hand-curated mapping) — both H006's and
+  H007's/H008's Purdue-level comparisons are lower bounds on the true CVE
+  mass at each level, not an exhaustive census.
+
+**Statistical caveats**
+- The protocol classifier's 200-CVE hand-labeled validation set measured
+  precision = recall = 1.000, but on **n=3 true positives** (the corpus's
+  real base rate of protocol-specific CVEs is 3 of 1,790 known CVEs). This
+  is reported honestly as a small-sample result — a perfect score on 3
+  positives is not the same statistical claim as a perfect score on 300.
+  See "Protocol classifier validation" above and
+  `tests/fixtures/protocol_validation_labels.json`.
+- Several hunts (H002, H004, H006, H008) rest on single-digit or
+  low-double-digit sample sizes for the same underlying reason: the
+  corpus is 8 hand-curated groups whose public sourcing rarely names
+  specific CVEs or tools.
+
+**Reporting lag** — every date this pipeline uses (KEV `dateAdded`, CSAF
+`initial_release_date`, NVD `nvd_published`) is a *publication* date, not
+a ground-truth first-use or first-disclosure date. Every derived interval
+(`patch_available_at_kev`, `disclosure_to_poc_days`, etc.) is therefore an
+upper or lower bound, never an exact measurement.
+
+**The hunt board itself is the strongest evidence this is being taken
+seriously**: 4 SUPPORTED, 1 REFUTED, 5 INSUFFICIENT is a genuinely mixed
+result, not a curated all-green board — see `reports/<date>-ot-capability-
+assessment.md` section 6 ("Confidence and limitations") for the full,
+generated version of this section, re-derived from the live graph every
+time `strata report` runs.
+
 ## Running it
 
 ```bash
@@ -144,6 +247,9 @@ uv sync
 uv run strata collect --source all
 uv run strata build      # corpus load + protocol/purdue/timeline/consensus enrichment
 uv run strata stats
+uv run strata hunt run --all               # the full 10-hunt board
+uv run strata report                       # renders reports/<date>-ot-capability-assessment.md
+uv run strata export storm --out data/export/strata.storm
 ```
 
 Re-run fully offline from cache (no network calls):
@@ -162,6 +268,21 @@ uv run ruff check .
 `make test`, `make collect` wrap the equivalent `uv run` commands. GNU Make
 may not be installed on Windows — `uv run <cmd>` is the primary supported
 interface; see `Makefile` for details.
+
+## Current scope — Week 4
+
+Added this week, on top of Weeks 1-3 below: the `hunt/` package and ten
+curated hunts (`hunts/H001.yaml`–`H010.yaml`), `strata hunt list/run
+[--all] [--format table|json]`; the `export/` package
+(`export/storm.py`/`stix.py`/`jsonld.py`/`graph_render.py`) and `strata
+export storm|stix|jsonld`, `strata graph show`; `config/telemetry_matrix.yaml`
+and the `report/` package (`report/render.py` + `report/templates/
+report.md.j2`) with `strata report`; this consolidated "Limitations and
+known gaps" section; and `docs/demo.md`, the 90-second interview demo
+script. See "What's built (Week 4)" above for the per-module detail.
+
+**Not implemented yet:** vendor-PSIRT collectors and the Streamlit UI
+(`src/strata/ui/`, tracked separately).
 
 ## Current scope — Week 1 + Week 2 + Week 3
 
@@ -190,9 +311,10 @@ adversary consensus enrichment passes, `strata collect`, `strata stats`,
 - Adversary consensus's `overlaps_with`-based cluster-collapsing is a
   no-op — no `overlaps_with` edges exist in the corpus yet.
 
-**Not implemented yet** (Week 4 per the spec): vendor-PSIRT collectors,
-the ten hunts and `strata hunt`, `strata export` (Storm/STIX/JSON-LD),
-`strata graph show`, and the Streamlit UI.
+**Not implemented in Weeks 1-3** (built in Week 4, see "Current scope —
+Week 4" above): the ten hunts and `strata hunt`, `strata export`
+(Storm/STIX/JSON-LD), `strata graph show`, and `strata report`.
+Vendor-PSIRT collectors and the Streamlit UI remain not implemented.
 
 net.py's rate limiter is source-agnostic (keyed by host, configured via
 `config/sources.toml`, with a per-call override mechanism added this

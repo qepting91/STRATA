@@ -1,0 +1,24 @@
+id: H002
+title: Time from public PoC to observed OT exploitation, by threat group
+hypothesis: >
+  Stage 1 initial-access groups targeting OT begin exploiting edge-device
+  N-days within 14 days of the first public proof-of-concept.
+rationale: >
+  Public reporting describes near-immediate weaponization but supplies no
+  measured interval. If true, OT patch SLAs measured in months are
+  structurally unable to close the window.
+null_hypothesis: >
+  Median disclosure-to-observed-group-use interval exceeds 14 days, or
+  the sample is too small to distinguish from chance.
+method: python
+python_fn: h002_poc_to_group_use
+falsifies_if: "n >= 3 and median_days > 14"
+insufficient_if: "n < 3"
+telemetry_gap: >
+  disclosure_to_group_use was never computed (documented Week 3 scope
+  reduction): the corpus group-entry format has no first_seen date on a
+  group's exploits claims, unlike the spec's own illustrative example.
+  There are zero metric_observation rows for this metric_name at all --
+  computing it for real would require re-researching first-observed-use
+  dates for every corpus exploit claim, which is out of scope for this
+  pass. This is an honest absence, not a small-sample artifact.

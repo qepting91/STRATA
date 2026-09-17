@@ -10,12 +10,16 @@ dependencies = [
     "pydantic-settings>=2.3",
     "typer>=0.12",
     "pyyaml>=6.0",
-    # Deliberately still deferred to later weeks (see
-    # strata-engineering-spec.md section 9 / build plan): jinja2 (report
-    # rendering), networkx (graph projection/traversal), simpleeval (hunt
-    # falsifies_if evaluation), stix2 (STIX export -- Week 2's ATT&CK
-    # collector parses STIX-as-JSON by hand instead, since it only needs
-    # attack-pattern objects, not the full STIX object model).
+    # Week 4 additions (hunt framework + export layer):
+    "networkx>=3.3",   # graph-method hunts, H009's traversal, static handoff render
+    "jinja2>=3.1",     # report templates (follow-up task)
+    "simpleeval>=0.9",  # restricted falsifies_if/insufficient_if evaluation -- never eval()
+    "stix2>=3.0",      # STIX 2.1 bundle export
+    # Streamlit UI deps (this task): pure-Python, local-only, no CDN/node
+    # toolchain -- keeps the whole project one dependency tree.
+    "streamlit>=1.38",
+    "pandas>=2.2",
+    "pyvis>=0.3.2",
 ]
 
 [dependency-groups]
@@ -23,6 +27,7 @@ dev = [
     "pytest>=8.2",
     "respx>=0.21",
     "ruff>=0.5",
+    "stix2-validator>=3.0",
 ]
 
 [project.scripts]

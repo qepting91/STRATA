@@ -1,0 +1,27 @@
+id: H003
+title: A vendor fix existed before KEV listing for most OT-relevant CVEs
+hypothesis: >
+  For most CVEs that make it onto the CISA KEV catalog, a vendor patch
+  was already available before the KEV listing date -- reframing the
+  problem from patch availability to patch application.
+rationale: >
+  If patches routinely predate KEV listing, the operational bottleneck is
+  not vendor responsiveness, it is asset owners' patch-application
+  latency -- a different remediation strategy than "wait for a fix."
+null_hypothesis: >
+  Most KEV-relevant CVEs had no vendor fix available before KEV listing,
+  or the sample is too small to draw a conclusion.
+method: sql
+query: |
+  SELECT COUNT(*) AS n, AVG(value) AS pct_patched_before_kev
+  FROM metric_observation
+  WHERE metric_name = 'patch_available_at_kev'
+falsifies_if: "pct_patched_before_kev < 0.5"
+insufficient_if: "n < 10"
+telemetry_gap: >
+  patch_available_at_kev compares whichever of {CSAF advisory
+  initial_release_date, NVD nvd_published} is available against KEV's
+  date_added -- it is a proxy for "a public advisory or NVD record
+  existed", not a direct read of a vendor's own patch-release date
+  (no vendor-PSIRT collector exists, see H010). Real corpus: 1707
+  observations, ~96% (patch/advisory predates KEV).
