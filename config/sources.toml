@@ -13,12 +13,38 @@ window_seconds = 1.0
 [hosts."api.github.com"]
 max_requests = 1
 window_seconds = 1.0
+# Known Week 2 gap, discovered live: this limiter is a per-request-spacing
+# token bucket, not a rolling-window request *budget*. GitHub's real
+# unauthenticated REST API budget is 60 requests/hour (separate from this
+# 1 req/sec spacing rule), which nuclei.py and metasploit.py's per-file
+# commit-date lookups can exhaust well before their SAMPLE_SIZE bound is
+# reached if run back-to-back with other api.github.com-heavy collectors
+# in the same hour. Both collectors catch the resulting 403 and fall back
+# to a collection-time proxy date per file rather than aborting -- see
+# their module docstrings. A future pass could add a real rolling-window
+# budget here and/or send an authenticated GITHUB_TOKEN to raise the cap
+# to 5000/hour.
 
 [hosts."raw.githubusercontent.com"]
 max_requests = 1
 window_seconds = 1.0
 
-# Reserved for Week 2 (NVD collector). Not used this week.
-# [hosts."services.nvd.nist.gov"]
-# max_requests = 5
-# window_seconds = 30.0
+# NVD's public rate-limit tiers are actually 5 requests/30s keyless and
+# 50 requests/30s with an API key. Week 2 simplification: apply the
+# conservative keyless tier unconditionally, regardless of whether
+# settings.nvd_api_key is present. The collector still sends the key
+# (it unlocks the higher tier and is good etiquette either way), but the
+# limiter here does not yet distinguish the two cases. Revisit if a fuller
+# NVD backfill (rather than per-known-CVE enrichment) makes runtime an
+# issue.
+[hosts."services.nvd.nist.gov"]
+max_requests = 5
+window_seconds = 30.0
+
+[hosts."api.first.org"]
+max_requests = 1
+window_seconds = 1.0
+
+[hosts."gitlab.com"]
+max_requests = 1
+window_seconds = 1.0

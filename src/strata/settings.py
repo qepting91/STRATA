@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    nvd_api_key: str | None = None
+    nvd_api_key: SecretStr | None = None
     data_dir: Path = Path("data")
     db_path: Path = Path("data/strata.db")
     allowlist_path: Path = Path("config/allowlist.txt")

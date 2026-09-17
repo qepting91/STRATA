@@ -206,7 +206,13 @@ class NetClient:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
-    def fetch(self, url: str, source: str, offline: bool = False) -> FetchResult:
+    def fetch(
+        self,
+        url: str,
+        source: str,
+        offline: bool = False,
+        extra_headers: dict[str, str] | None = None,
+    ) -> FetchResult:
         """Fetch a URL, honoring the allowlist, cache, and offline mode.
 
         Args:
@@ -218,6 +224,13 @@ class NetClient:
             offline: If True, never touch the network -- serve from the
                 on-disk manifest/cache only, raising OfflineCacheMiss
                 if nothing is cached for this URL.
+            extra_headers: Additional request headers (e.g. an API key),
+                merged into this request only. Never used as part of the
+                cache/manifest key (that's always the bare `url`) and
+                never persisted anywhere -- not in manifest.json, not in
+                the `source` table's url column, not in any exception
+                message. Callers must not put secrets in `url` itself
+                (e.g. as a query parameter) since url IS persisted.
 
         Returns:
             A FetchResult with the response content (or cached content).
@@ -250,7 +263,7 @@ class NetClient:
         if host not in self._allowlist:
             raise EgressDenied(f"{host} is not in the egress allowlist")
 
-        headers: dict[str, str] = {}
+        headers: dict[str, str] = dict(extra_headers) if extra_headers else {}
         if cached is not None:
             if cached.get("etag"):
                 headers["If-None-Match"] = cached["etag"]

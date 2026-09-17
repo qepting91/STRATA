@@ -1,11 +1,14 @@
 # STRATA — OT/ICS Threat-Capability Tracking Pipeline
 
-**Week 1 spine.** A local-only, zero-cost collection pipeline that snapshots
-public OT/ICS vulnerability advisories, stores them in a provenance-tracked
-SQLite graph, and prints basic collection stats. This is the first of four
-build phases described in `strata-engineering-spec.md`; see that document
-for the full architecture, later-week scope (enrichment, hunts, exports,
-Streamlit UI), and design rationale.
+**Week 1 "spine" + Week 2 "breadth."** A local-only, zero-cost collection
+pipeline that pulls public OT/ICS vulnerability advisories, exploitation
+signals (NVD, EPSS, PoC-in-GitHub, Exploit-DB, Nuclei, Metasploit), MITRE
+ATT&CK technique reference data, and a hand-curated threat-group corpus
+into a provenance-tracked SQLite graph, and prints collection stats. This
+is the first two of four build phases described in
+`strata-engineering-spec.md`; see that document for the full architecture,
+later-week scope (enrichment, hunts, exports, Streamlit UI), and design
+rationale.
 
 ## Why this exists — "RSS is dead"
 
@@ -17,7 +20,7 @@ Framework) JSON corpus published at `github.com/cisagov/CSAF`, plus the KEV
 catalog JSON. This is a design decision reflecting where CISA's tooling
 actually is now, not a workaround or a limitation.
 
-## What's built (Week 1)
+## What's built (Week 1 + Week 2)
 
 - `net.py` — an egress-allowlisted `httpx` client with per-host rate
   limiting, conditional-request caching (ETag / Last-Modified), on-disk
@@ -31,7 +34,22 @@ actually is now, not a workaround or a limitation.
   collector.
 - `collect/cisa_csaf.py` — CISA CSAF advisory collector, discovering the
   most recent N advisory files via the GitHub Git Trees API (see below).
-- `cli.py` — `strata collect --source {kev,csaf,all}` and `strata stats`.
+- `collect/nvd.py` — enriches known `vuln` nodes with CVSS/CWE/CPE data
+  from the NVD `cve/2.0` API; `normalize/cpe.py` parses CPE 2.3 strings
+  into `product`/`vendor` nodes and `affects`/`made_by` edges.
+- `collect/attack.py` — MITRE ATT&CK enterprise + ICS `technique` nodes.
+- `collect/epss.py` — FIRST.org EPSS scores as `metric_observation` rows.
+- `collect/poc_github.py`, `collect/exploitdb.py`, `collect/nuclei.py`,
+  `collect/metasploit.py` — weaponization-timing signal collectors,
+  writing into a dedicated `signal` table (not the node/edge graph).
+- `normalize/models.py` + `normalize/corpus.py` — pydantic-validated
+  corpus loader: `corpus/citations.yaml` + `corpus/groups/*.yaml` ->
+  `group`/`tool`/`vuln`/`technique`/`sector`/`geo` nodes and their edges,
+  with fail-loud citation validation and stub-node creation for
+  hands-off-to targets that lack their own corpus entry.
+- `cli.py` — `strata collect --source {kev,csaf,nvd,attack,epss,
+  poc-github,exploitdb,nuclei,metasploit,all}`, `strata stats`, and
+  `strata corpus load`.
 
 ## CSAF file-discovery assumption (read this before relying on it)
 
@@ -58,6 +76,7 @@ future-week scope.
 ```bash
 uv sync
 uv run strata collect --source all
+uv run strata corpus load
 uv run strata stats
 ```
 
@@ -78,25 +97,30 @@ uv run ruff check .
 may not be installed on Windows — `uv run <cmd>` is the primary supported
 interface; see `Makefile` for details.
 
-## Current scope — Week 1 only
+## Current scope — Week 1 + Week 2
 
 Implemented: egress-guarded fetch/cache layer, SQLite graph schema with the
-provenance constraint, KEV + CISA CSAF collectors, `strata collect`,
-`strata stats`.
+provenance constraint (plus the Week 2 `signal` table and merge-upsert
+`node.attrs` semantics), KEV + CISA CSAF + NVD + ATT&CK + EPSS collectors,
+four weaponization-signal collectors (PoC-in-GitHub, Exploit-DB, Nuclei,
+Metasploit), a hand-curated corpus loader, `strata collect`, `strata
+stats`, and `strata corpus load`.
 
-**Not implemented yet** (later weeks per the spec): NVD/ATT&CK/EPSS/
-ExploitDB/PoC-in-GitHub/Nuclei/Metasploit/vendor-PSIRT collectors, the
-`corpus/` hand-curated group layer, `strata build` (normalize + load +
-enrich), the protocol classifier, Purdue mapping, the weaponization
-timeline, adversary consensus scoring, the ten hunts and `strata hunt`,
-`strata export` (Storm/STIX/JSON-LD), `strata graph show`, and the
-Streamlit UI. `strata build` is intentionally **omitted from the CLI**
-this week (not stubbed), so `--help` doesn't advertise functionality that
-doesn't exist yet.
+**Not implemented yet** (later weeks per the spec): vendor-PSIRT
+collectors, `strata build` (normalize + load + enrich), the protocol
+classifier, Purdue mapping, the weaponization timeline (`enrich/
+timeline.py` -- this is exactly what the new `signal` table and PoC/
+Exploit-DB/Nuclei/Metasploit data feed), adversary consensus scoring, the
+ten hunts and `strata hunt`, `strata export` (Storm/STIX/JSON-LD), `strata
+graph show`, and the Streamlit UI. `strata build` is intentionally
+**omitted from the CLI** (not stubbed), so `--help` doesn't advertise
+functionality that doesn't exist yet.
 
 net.py's rate limiter is source-agnostic (keyed by host, configured via
-`config/sources.toml`) so the NVD collector can be added later without
-reworking the fetch layer.
+`config/sources.toml`). See `SOURCES.md` for a discovered gap: it enforces
+per-request spacing, not a rolling-window budget, which does not match
+GitHub's real unauthenticated 60-requests/hour REST API cap -- the
+`nuclei`/`metasploit` collectors handle this gracefully (see SOURCES.md).
 
 ## Deliberately excluded (project-wide, all weeks)
 

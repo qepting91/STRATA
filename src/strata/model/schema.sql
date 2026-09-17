@@ -55,3 +55,25 @@ CREATE INDEX IF NOT EXISTS idx_edge_src ON edge(src_id);
 CREATE INDEX IF NOT EXISTS idx_edge_dst ON edge(dst_id);
 CREATE INDEX IF NOT EXISTS idx_edge_source ON edge(source_id);
 CREATE INDEX IF NOT EXISTS idx_metric_node ON metric_observation(node_id);
+
+-- Week 2 addition: weaponization-timing signals (PoC-in-GitHub, Exploit-DB,
+-- Nuclei, Metasploit). Deliberately NOT part of the node/edge graph -- a
+-- signal is a raw "this CVE was referenced here, on this date" fact, not an
+-- entity. `cve` is a plain text column (no FK to node.id): a signal can be
+-- recorded for a CVE the local graph has not ingested as a vuln node yet.
+-- Still carries the same non-negotiable provenance FK into `source`.
+CREATE TABLE IF NOT EXISTS signal (
+    id          TEXT PRIMARY KEY,
+    cve         TEXT NOT NULL,
+    source      TEXT NOT NULL CHECK (
+        source IN ('poc-github', 'exploitdb', 'nuclei', 'metasploit')
+    ),
+    signal_type TEXT NOT NULL,
+    ref         TEXT,
+    observed_at TEXT NOT NULL,
+    meta        TEXT,
+    source_id   TEXT NOT NULL REFERENCES source(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_signal_cve ON signal(cve);
+CREATE INDEX IF NOT EXISTS idx_signal_source ON signal(source);

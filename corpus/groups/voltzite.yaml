@@ -1,0 +1,50 @@
+# VOLTZITE: Stage 2 OT-focused espionage/disruption group.
+#
+# All facts sourced to Dragos's own public VOLTZITE page (S-0001). No
+# specific CVEs are named in that public reporting, so this file has no
+# `exploits` list -- absence here is a documented gap, not an omission.
+# The received handoff from SYLVANITE is declared once, in
+# sylvanite.yaml's hands_off_to block; it is not re-asserted here to
+# avoid a duplicate edge row.
+id: voltzite
+name: VOLTZITE
+naming_org: Dragos
+ics_kill_chain_stage: 2
+role: ot_espionage_and_disruption
+
+aliases:
+  - name: Volt Typhoon
+    org: Microsoft
+    src: S-0002
+  - name: BRONZE SILHOUETTE
+    org: Secureworks
+    src: S-0002
+
+targets:
+  sectors: [electric_power_td, emergency_services, telecom, defense_industrial_base, satellite_services]
+  # US is the primary focus (Guam called out specifically in S-0002);
+  # additional activity reported in Africa and Southeast Asia, which
+  # don't reduce cleanly to ISO country codes at this level of public
+  # detail, so only the specifically-named US/Guam geos are listed here.
+  geos: [US, GU]
+  src: S-0002
+
+tools:
+  # S-0002: "Fast Reverse Proxy, multiple web shells" for persistence.
+  # Only frp is named specifically enough to cite as a tool entry; the
+  # unnamed "multiple web shells" reference isn't a citable tool name.
+  - name: frp
+    class: tunnel
+    oss: true
+    src: S-0002
+
+techniques:
+  # T1090 (Proxy): matches the reported use of Fast Reverse Proxy for C2.
+  - attack_id: T1090
+    matrix: enterprise
+    src: S-0002
+  # T1021 (Remote Services): matches reported lateral movement via
+  # living-off-the-land techniques.
+  - attack_id: T1021
+    matrix: enterprise
+    src: S-0002

@@ -9,12 +9,13 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "typer>=0.12",
-    # Deliberately deferred to later weeks (see strata-engineering-spec.md
-    # section 9 / build plan): pyyaml (corpus loader), jinja2 (report
+    "pyyaml>=6.0",
+    # Deliberately still deferred to later weeks (see
+    # strata-engineering-spec.md section 9 / build plan): jinja2 (report
     # rendering), networkx (graph projection/traversal), simpleeval (hunt
-    # falsifies_if evaluation), stix2 (STIX export). Not needed for the
-    # Week 1 collect -> store -> stats spine and deliberately excluded to
-    # keep the dependency surface minimal until they are load-bearing.
+    # falsifies_if evaluation), stix2 (STIX export -- Week 2's ATT&CK
+    # collector parses STIX-as-JSON by hand instead, since it only needs
+    # attack-pattern objects, not the full STIX object model).
 ]
 
 [dependency-groups]

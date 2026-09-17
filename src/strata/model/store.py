@@ -8,6 +8,7 @@ with ``PRAGMA foreign_keys=ON``) and exercised in ``tests/test_store.py``.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
@@ -103,6 +104,27 @@ def insert_node(
 ) -> None:
     """Insert or update a node row (upsert-safe, keyed by id).
 
+    On conflict, ``attrs`` is merge-upserted rather than overwritten
+    wholesale: if the new ``attrs`` payload is non-``None``, it is decoded
+    and shallow-merged on top of the existing node's decoded ``attrs``
+    (new keys win; keys present in the existing attrs but absent from the
+    new payload are preserved). This matters because multiple collectors
+    (KEV, CSAF, NVD, EPSS) all touch the same ``vuln`` node id over time
+    and must not clobber each other's fields. If either side's ``attrs``
+    is not valid JSON, this falls back to the new value verbatim.
+
+    Invariant this relies on: each collector writes a disjoint set of
+    attrs keys (e.g. NVD writes cvss_v31_base/cvss_vector/cwe/
+    nvd_published; KEV/CSAF write different named fields). This merge is
+    a blind ``dict.update()`` with no per-key provenance or authority
+    check -- it is a convenience denormalization, not part of the
+    provenance record (edges and metric_observation rows still each cite
+    their own source_id individually). If a future collector ever reuses
+    an existing attrs key name, it will silently win the merge with no
+    audit trail. Keep new collectors' attrs keys disjoint from existing
+    ones, or extend this function with a per-key source check if that
+    stops being safe to assume.
+
     Args:
         conn: Open database connection.
         id: Stable natural or synthetic identifier for the node.
@@ -111,6 +133,22 @@ def insert_node(
         attrs: Opaque JSON-encoded attribute blob, or None.
         created_at: ISO-8601 timestamp of first observation.
     """
+    merged_attrs = attrs
+    if attrs is not None:
+        existing = conn.execute(
+            "SELECT attrs FROM node WHERE id = ?", (id,)
+        ).fetchone()
+        if existing is not None and existing["attrs"] is not None:
+            try:
+                existing_attrs = json.loads(existing["attrs"])
+                new_attrs = json.loads(attrs)
+                if isinstance(existing_attrs, dict) and isinstance(new_attrs, dict):
+                    merged = dict(existing_attrs)
+                    merged.update(new_attrs)
+                    merged_attrs = json.dumps(merged, sort_keys=True)
+            except (json.JSONDecodeError, TypeError):
+                merged_attrs = attrs
+
     conn.execute(
         """
         INSERT INTO node (id, type, label, attrs, created_at)
@@ -124,7 +162,7 @@ def insert_node(
             "id": id,
             "type": type,
             "label": label,
-            "attrs": attrs,
+            "attrs": merged_attrs,
             "created_at": created_at,
         },
     )
@@ -212,3 +250,145 @@ def latest_fetch_times(conn: sqlite3.Connection) -> dict[str, str]:
         """
     ).fetchall()
     return {row["name"]: row["latest"] for row in rows}
+
+
+def get_all_vuln_cve_ids(conn: sqlite3.Connection) -> set[str]:
+    """Return the set of all CVE ids currently present as ``vuln`` nodes.
+
+    Used by Week 2 collectors (NVD, EPSS) that enrich already-known CVEs
+    rather than backfilling the full upstream universe.
+    """
+    rows = conn.execute("SELECT id FROM node WHERE type = 'vuln'").fetchall()
+    return {row["id"] for row in rows}
+
+
+def insert_signal(
+    conn: sqlite3.Connection,
+    *,
+    id: str,
+    cve: str,
+    source: str,
+    signal_type: str,
+    ref: str | None,
+    observed_at: str,
+    meta: str | None,
+    source_id: str,
+) -> None:
+    """Insert or update a weaponization-timing signal row (upsert by id).
+
+    Args:
+        conn: Open database connection.
+        id: Stable identifier for the signal row.
+        cve: CVE id the signal refers to (plain text, no FK to node.id).
+        source: One of 'poc-github', 'exploitdb', 'nuclei', 'metasploit'.
+        signal_type: Free-text signal kind, e.g. 'poc_repo_created'.
+        ref: A URL or other reference for the signal, if any.
+        observed_at: ISO-8601 (or date) timestamp of the observed event.
+        meta: Opaque JSON-encoded extra metadata, or None.
+        source_id: Provenance source id. Must not be None.
+
+    Raises:
+        sqlite3.IntegrityError: If ``source_id`` does not reference an
+            existing ``source`` row, or any other constraint fails.
+    """
+    conn.execute(
+        """
+        INSERT INTO signal (id, cve, source, signal_type, ref, observed_at, meta, source_id)
+        VALUES (:id, :cve, :source, :signal_type, :ref, :observed_at, :meta, :source_id)
+        ON CONFLICT(id) DO UPDATE SET
+            cve = excluded.cve,
+            source = excluded.source,
+            signal_type = excluded.signal_type,
+            ref = excluded.ref,
+            observed_at = excluded.observed_at,
+            meta = excluded.meta,
+            source_id = excluded.source_id
+        """,
+        {
+            "id": id,
+            "cve": cve,
+            "source": source,
+            "signal_type": signal_type,
+            "ref": ref,
+            "observed_at": observed_at,
+            "meta": meta,
+            "source_id": source_id,
+        },
+    )
+    conn.commit()
+
+
+def count_signals_by_source(conn: sqlite3.Connection) -> dict[str, int]:
+    """Return a mapping of signal source -> count."""
+    rows = conn.execute(
+        "SELECT source, COUNT(*) AS n FROM signal GROUP BY source ORDER BY source"
+    ).fetchall()
+    return {row["source"]: row["n"] for row in rows}
+
+
+def insert_metric_observation(
+    conn: sqlite3.Connection,
+    *,
+    id: str,
+    node_id: str,
+    metric_name: str,
+    value: float,
+    model_version: str | None,
+    observed_at: str,
+    source_id: str,
+) -> None:
+    """Insert or update a metric observation row (upsert by id).
+
+    Column names match the Week 1 schema exactly (``metric_name``, not the
+    engineering spec's illustrative ``metric``; ``node_id``, not ``cve``) --
+    see ``model/schema.sql``.
+
+    Args:
+        conn: Open database connection.
+        id: Stable identifier for the observation row.
+        node_id: Node id the observation is about (e.g. a CVE id).
+        metric_name: e.g. 'epss', 'epss_percentile', 'cvss_v31_base'.
+        value: The observed numeric value.
+        model_version: Model/scoring generation, if applicable (e.g. an
+            EPSS model version or CVSS version string).
+        observed_at: ISO-8601 (or date) timestamp the value was published.
+        source_id: Provenance source id. Must not be None.
+
+    Raises:
+        sqlite3.IntegrityError: If ``source_id``/``node_id`` do not
+            reference existing rows, or any other constraint fails.
+    """
+    conn.execute(
+        """
+        INSERT INTO metric_observation
+            (id, node_id, metric_name, value, model_version, observed_at, source_id)
+        VALUES
+            (:id, :node_id, :metric_name, :value, :model_version, :observed_at, :source_id)
+        ON CONFLICT(id) DO UPDATE SET
+            node_id = excluded.node_id,
+            metric_name = excluded.metric_name,
+            value = excluded.value,
+            model_version = excluded.model_version,
+            observed_at = excluded.observed_at,
+            source_id = excluded.source_id
+        """,
+        {
+            "id": id,
+            "node_id": node_id,
+            "metric_name": metric_name,
+            "value": value,
+            "model_version": model_version,
+            "observed_at": observed_at,
+            "source_id": source_id,
+        },
+    )
+    conn.commit()
+
+
+def count_metric_observations_by_name(conn: sqlite3.Connection) -> dict[str, int]:
+    """Return a mapping of metric_name -> count."""
+    rows = conn.execute(
+        "SELECT metric_name, COUNT(*) AS n FROM metric_observation GROUP BY metric_name "
+        "ORDER BY metric_name"
+    ).fetchall()
+    return {row["metric_name"]: row["n"] for row in rows}

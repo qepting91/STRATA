@@ -1,0 +1,68 @@
+# KAMACITE: initial-access facilitator for ELECTRUM, ICS kill-chain stage 1.
+#
+# All facts sourced to Dragos's public KAMACITE blog post (S-0003). No
+# specific CVEs are named in that public reporting, so this file has no
+# `exploits` list. `hands_off_to: electrum` references a group that does
+# not yet have its own corpus/groups/electrum.yaml file in this batch --
+# normalize/corpus.py stub-creates a bare `group` node for it so the edge
+# is valid without inventing an uncited full profile. See
+# SOURCES.md/README for this documented gap.
+id: kamacite
+name: KAMACITE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: initial_access_broker
+
+targets:
+  sectors: [electric_td, oil_gas, manufacturing]
+  # S-0003: Ukraine (2015-2016), Germany (2017 electric sector), United
+  # States (2019-2020 energy sector), and "Western Europe" generally --
+  # the last of these doesn't reduce to a single ISO code, so it's noted
+  # here rather than approximated as one country.
+  geos: [UA, DE, US]
+  src: S-0003
+
+tools:
+  - name: BlackEnergy2
+    class: framework
+    src: S-0003
+  - name: BlackEnergy3
+    class: framework
+    src: S-0003
+  - name: GreyEnergy
+    class: framework
+    src: S-0003
+  - name: Exaramel
+    class: malware
+    src: S-0003
+  - name: Mimikatz
+    class: credential_theft
+    oss: true
+    src: S-0003
+  - name: PsExec
+    class: lateral_movement
+    src: S-0003
+
+techniques:
+  # T1078 (Valid Accounts): S-0003 describes credential theft and reuse.
+  - attack_id: T1078
+    matrix: enterprise
+    src: S-0003
+  # T1021 (Remote Services): PsExec-based lateral movement per S-0003.
+  - attack_id: T1021
+    matrix: enterprise
+    src: S-0003
+  # T1566 (Phishing): S-0003 describes phishing with malicious
+  # attachments as an initial-access vector.
+  - attack_id: T1566
+    matrix: enterprise
+    src: S-0003
+
+hands_off_to:
+  # S-0003: KAMACITE "facilitated intrusion and transition of operations
+  # to ELECTRUM after penetrating the ICS environment, leading to
+  # delivery and execution of CRASHOVERRIDE malware" during the 2016
+  # Ukraine power event -- stated directly, hence confidence: high.
+  - group: electrum
+    confidence: high
+    src: S-0003

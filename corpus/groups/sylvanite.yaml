@@ -1,0 +1,75 @@
+# SYLVANITE: initial-access broker, ICS kill-chain stage 1.
+#
+# Every fact below is sourced to a public document listed in
+# corpus/citations.yaml -- see that file's header for the research
+# methodology. Group identity/role/targets/handoff claims are cited to
+# Dragos's own public threat-group page (S-0001); specific CVE
+# exploitation and tooling claims are cited to independent vendor/press
+# reporting on the overlapping UNC5221 cluster (S-0004, S-0005, S-0006).
+id: sylvanite
+name: SYLVANITE
+naming_org: Dragos
+ics_kill_chain_stage: 1
+role: initial_access_broker
+
+aliases:
+  - name: UNC5221
+    org: Mandiant
+    src: S-0001
+
+targets:
+  sectors: [electric, water_wastewater, oil_gas, manufacturing, public_admin]
+  geos: [US, GB, JP, KR, GU, PH, SA]
+  src: S-0001
+
+exploits:
+  - cve: CVE-2023-46805
+    product: ivanti_connect_secure
+    src: S-0004
+  - cve: CVE-2024-21887
+    product: ivanti_connect_secure
+    src: S-0004
+  - cve: CVE-2025-4427
+    product: ivanti_epmm
+    src: S-0005
+  - cve: CVE-2025-4428
+    product: ivanti_epmm
+    src: S-0005
+  - cve: CVE-2025-31324
+    product: sap_netweaver
+    src: S-0006
+
+tools:
+  - name: KrustyLoader
+    class: loader
+    src: S-0005
+  - name: WARPWIRE
+    class: credential_harvester
+    src: S-0004
+  - name: WIREFIRE
+    class: webshell
+    src: S-0004
+  - name: ZIPLINE
+    class: backdoor
+    src: S-0004
+
+techniques:
+  # T1190 (Exploit Public-Facing Application): SYLVANITE's core mode of
+  # operation per S-0001 ("operates at scale against emerging POCs on
+  # widely used network edge devices").
+  - attack_id: T1190
+    matrix: enterprise
+    src: S-0001
+  # T1505.003 (Server Software Component: Web Shell): WIREFIRE is
+  # documented as a web shell in S-0004.
+  - attack_id: T1505.003
+    matrix: enterprise
+    src: S-0004
+
+hands_off_to:
+  # S-0001: "Dragos has directly observed SYLVANITE transferring access
+  # to VOLTZITE" -- stated as directly observed, not inferred, hence
+  # confidence: high.
+  - group: voltzite
+    confidence: high
+    src: S-0001

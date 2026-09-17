@@ -1,0 +1,9 @@
+id: beta
+name: BETA
+naming_org: TestOrg
+ics_kill_chain_stage: 2
+role: stage2_ot_disruption
+targets:
+  sectors: [electric_power_td]
+  geos: [US]
+  src: C-0002

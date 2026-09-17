@@ -1,3 +1,6 @@
 www.cisa.gov
 api.github.com
 raw.githubusercontent.com
+services.nvd.nist.gov
+api.first.org
+gitlab.com

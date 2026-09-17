@@ -1,0 +1,75 @@
+# STRATA citation registry.
+#
+# Every `src` field in corpus/groups/*.yaml must resolve to an id defined
+# here. Each entry becomes a `source` row in the graph (see
+# normalize/corpus.py), so every corpus-derived edge is traceable to a
+# real, publicly linkable document -- no claim in this corpus rests on
+# anything that isn't listed below.
+#
+# `publisher`/`url`/`retrieved` are the fields normalize/corpus.py reads.
+# `supports` is documentation only (not read by the loader): a short note
+# on what claim(s) this citation backs, so a reviewer doesn't have to
+# open the group YAML files to see why a source is here.
+#
+# These were verified live via web search on 2026-09-17 -- not copied
+# from the engineering spec's illustrative worked example, whose exact
+# citation ids/URLs are not real. Dragos's own public threat-group pages
+# (dragos.com/threat/*) are cited directly for group identity/role/
+# targets/handoff claims, matching this project's "public nomenclature
+# with attribution" stance (see SECURITY.md / spec sections 1 and 14) --
+# this is not a reproduction of proprietary Dragos WorldView report
+# content, just a citation of Dragos's own public pages. Independent
+# vendor/press reporting is cited for specific CVE-exploitation claims.
+
+S-0001:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/sylvanite/
+  retrieved: "2026-09-17"
+  supports: >
+    SYLVANITE identity, role as an initial-access broker, targeted
+    sectors/geos, direct handoff of access to VOLTZITE, and the publicly
+    stated overlap with UNC5221.
+
+S-0002:
+  publisher: Dragos
+  url: https://www.dragos.com/threat/voltzite
+  retrieved: "2026-09-17"
+  supports: >
+    VOLTZITE identity, targeted sectors/geos, TTPs (living-off-the-land,
+    Fast Reverse Proxy, web shells), and overlap with Volt Typhoon
+    (Microsoft) / BRONZE SILHOUETTE (Secureworks).
+
+S-0003:
+  publisher: Dragos
+  url: https://www.dragos.com/blog/new-ics-threat-activity-group-kamacite/
+  retrieved: "2026-09-17"
+  supports: >
+    KAMACITE identity, role as an initial-access facilitator for
+    ELECTRUM, targeted sectors/geos since 2014, tooling (BlackEnergy2/3,
+    GreyEnergy, Exaramel, Mimikatz, PsExec), and the handoff to ELECTRUM
+    during the 2015/2016 Ukraine grid events.
+
+S-0004:
+  publisher: Google Cloud (Mandiant)
+  url: https://cloud.google.com/blog/topics/threat-intelligence/ivanti-connect-secure-vpn-zero-day
+  retrieved: "2026-09-17"
+  supports: >
+    UNC5221 exploitation of CVE-2023-46805 and CVE-2024-21887 in Ivanti
+    Connect Secure, and the WARPWIRE/WIREFIRE/ZIPLINE tool set used in
+    that campaign.
+
+S-0005:
+  publisher: SecurityAffairs
+  url: https://securityaffairs.com/178285/apt/china-linked-apt-unc5221-started-exploiting-ivanti-epmm-flaws-shortly-after-their-disclosure.html
+  retrieved: "2026-09-17"
+  supports: >
+    UNC5221 exploitation of CVE-2025-4427 and CVE-2025-4428 in Ivanti
+    EPMM, and use of KrustyLoader in that campaign.
+
+S-0006:
+  publisher: The Hacker News
+  url: https://thehackernews.com/2025/05/china-linked-apts-exploit-sap-cve-2025.html
+  retrieved: "2026-09-17"
+  supports: >
+    UNC5221/UNC5174 exploitation of CVE-2025-31324 in SAP NetWeaver
+    Visual Composer.

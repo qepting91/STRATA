@@ -48,12 +48,123 @@ provides. All sources below are free and require no authentication.
   the sample happens to cover. A more complete backfill (paging further
   into the tree, or using CISA's ROLIE index) is later-week scope.
 
-## Deliberately not collected this week
+## `nvd` — NVD CVE enrichment (Week 2)
 
-NVD, MITRE ATT&CK, FIRST EPSS, Exploit-DB, PoC-in-GitHub, Nuclei
-templates, Metasploit modules, and vendor PSIRT feeds (Siemens,
-Schneider, Hitachi, Cisco, Palo Alto, Fortinet, Ivanti) are all in scope
-per the engineering spec but are Week 2+ work. `net.py`'s rate limiter is
-keyed by hostname and configured via `config/sources.toml` specifically
-so these can be added later without reworking the fetch/cache layer.
+- **URL:** `https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=<CVE>`
+- **License / terms:** U.S. Government public-domain work product. An
+  optional `NVD_API_KEY` unlocks a faster tier (documented `apiKey`
+  request header), but this collector works keyless.
+- **Scope decision:** enriches CVEs already present as `vuln` nodes
+  (seeded by KEV/CSAF) rather than backfilling the whole NVD corpus --
+  one HTTP request per known CVE. At ~1,800 known CVEs and the
+  conservative 5 req/30s limit in `config/sources.toml`, a full run takes
+  on the order of tens of minutes. `--since` is not meaningful for this
+  mode and is ignored with a log notice rather than erroring.
+- **What it gives you:** CVSS v3.1 base score/vector, CWE id(s), and CPE
+  `configurations` matches, which are turned into `product`/`vendor`
+  nodes and `affects`/`made_by` edges via `normalize/cpe.py`.
+- **Provenance granularity:** one `source` row per CVE queried
+  (`nvd-<CVE>`).
+
+## `attack` — MITRE ATT&CK enterprise + ICS techniques (Week 2)
+
+- **URL:** `https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/{enterprise-attack,ics-attack}/{enterprise,ics}-attack.json`
+- **License / terms:** MITRE ATT&CK content, Apache 2.0 licensed.
+- **Deviation from the build plan:** the plan anticipated needing to
+  query the GitHub API for a "latest versioned filename" (the repo also
+  keeps per-release copies under subdirectories). Verified live that the
+  unversioned `master`-ref path above resolves directly to the current
+  bundle for both matrices, so no extra API call is needed.
+- **What it gives you:** `technique` nodes (id = ATT&CK id like `T1190`,
+  attrs = name/matrix/tactics). No edges -- group-to-technique
+  relationships come from the corpus loader, not from ATT&CK content.
+- **Provenance granularity:** one `source` row per matrix (enterprise,
+  ics).
+
+## `epss` — FIRST.org EPSS scores (Week 2)
+
+- **URL:** `https://api.first.org/data/v1/epss?cve=<comma-separated CVEs>`
+- **Host correction:** the engineering spec's illustrative
+  `epss.cyentia.com` host is stale/inaccurate. The real, current EPSS API
+  is `api.first.org/data/v1/epss`, verified live; it supports batching
+  many CVEs into one request (chunked at 100 CVEs/request here to stay
+  within the API's own page size).
+- **Scope decision:** current-date scores only, filtered to CVEs already
+  present as `vuln` nodes -- not a historical daily backfill (deferred).
+- **What it gives you:** `epss` and `epss_percentile`
+  `metric_observation` rows per CVE. `model_version` is left `None`: the
+  live API response does not carry a model-generation field to record
+  honestly (a documented Week 2 gap).
+- **Provenance granularity:** one shared `source` row per fetch date.
+
+## Signal collectors (Week 2) — `poc-github`, `exploitdb`, `nuclei`, `metasploit`
+
+These write into a separate `signal` table (raw "this CVE was referenced
+here, on this date" facts), not the node/edge graph -- see
+`strata-engineering-spec.md` §6.1 for why (Week 3's weaponization
+timeline reads this table).
+
+- **`poc-github`** (nomi-sec/PoC-in-GitHub): actual layout discovered
+  live differs from the plan -- one JSON file **per CVE**
+  (`<year>/CVE-XXXX-XXXXX.json`), not one big per-year file. Bounded to a
+  sample of `SAMPLE_SIZE=50` CVE files from the current year's directory
+  listing (`api.github.com/repos/nomi-sec/PoC-in-GitHub/contents/<year>`)
+  to keep a run tractable.
+- **`exploitdb`**: `files_exploits.csv` fetched from GitLab
+  (`gitlab.com/exploit-database/exploitdb/-/raw/main/files_exploits.csv`)
+  -- Exploit-DB's canonical repo moved off GitHub some years ago. CVEs
+  are extracted from the semicolon-separated `codes` column.
+- **`nuclei`** (projectdiscovery/nuclei-templates): CVE-named templates
+  under `http/cves/<year>/CVE-XXXX-XXXXX.yaml`, enumerated via the GitHub
+  Trees API, bounded to `SAMPLE_SIZE=40` most-recent-by-year files. One
+  extra `commits?path=...` API call per sampled file gets an honest
+  first-commit date (not a "first observed in this run" proxy).
+- **`metasploit`** (rapid7/metasploit-framework): no CVE-named-file
+  shortcut exists, so this collector enumerates `modules/exploits/**/*.rb`
+  via the Trees API, samples `SAMPLE_SIZE=60` files, fetches each one's
+  raw source, and regex-matches the `['CVE', '<year>-<num>']` reference
+  literal actually used in Metasploit module source. A commit-date lookup
+  runs only for files that matched a CVE (bounded by however many that
+  turns out to be, not by SAMPLE_SIZE).
+
+**Discovered live rate-limit gap (all four GitHub-hosted signal
+collectors, plus `attack`/`nvd` incidentally):** GitHub's REST API
+enforces an unauthenticated budget of 60 requests/hour on `api.github.com`
+(separate from and stricter than the 1 req/sec spacing rule in
+`config/sources.toml`, which has no rolling-window budget concept). The
+`nuclei`/`metasploit` collectors' per-file commit-date lookups can exhaust
+this budget within a single run if several `api.github.com`-heavy
+collectors are run back-to-back inside the same hour. Both collectors
+catch the resulting HTTP 403 per file and fall back to a
+collection-time proxy date (flagged in the signal's `meta` JSON as
+`observed_at_is_collection_time_proxy: true`) rather than aborting the
+whole run. This was hit live during Week 2 development. A future pass
+could add a real rolling-window budget to the rate limiter and/or send an
+authenticated `GITHUB_TOKEN` to raise the cap to 5,000/hour.
+
+## Deliberately not collected
+
+Vendor PSIRT feeds (Siemens, Schneider, Hitachi, Cisco, Palo Alto,
+Fortinet, Ivanti) are in scope per the engineering spec but remain
+later-week work. `net.py`'s rate limiter is keyed by hostname and
+configured via `config/sources.toml` specifically so these can be added
+later without reworking the fetch/cache layer.
+
+## Known corpus gap (Week 2)
+
+`corpus/groups/kamacite.yaml` references `electrum` via `hands_off_to`
+(per Dragos's public KAMACITE post: KAMACITE "facilitated intrusion and
+transition of operations to ELECTRUM" during the 2015/2016 Ukraine grid
+events). ELECTRUM does not have its own corpus YAML file authored yet in
+this batch, so `strata corpus load` stub-creates a bare `group` node (id
++ label only) for it so the citing edge is valid without inventing an
+uncited full profile — confirmed live: `strata corpus load` reports
+"Groups stub-created (1): electrum". Run `strata stats` after a corpus
+load to see stub vs. fully-loaded groups reported explicitly.
+
+Citations, aliases, and specific CVE/tool claims for SYLVANITE, VOLTZITE,
+and KAMACITE were verified via live web research (not copied from the
+engineering spec's illustrative worked example) — see the header comment
+in `corpus/citations.yaml` for the six sources used and what each
+supports.
 

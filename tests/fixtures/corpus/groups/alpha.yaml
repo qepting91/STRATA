@@ -1,0 +1,20 @@
+id: alpha
+name: ALPHA
+naming_org: TestOrg
+ics_kill_chain_stage: 1
+role: initial_access_broker
+aliases:
+  - {name: UNC0001, org: TestVendor, src: C-0001}
+targets:
+  sectors: [electric, water_wastewater]
+  geos: [US, GB]
+  src: C-0001
+exploits:
+  - {cve: CVE-2024-0001, product: test_product, src: C-0001}
+tools:
+  - {name: TestLoader, class: loader, src: C-0001}
+techniques:
+  - {attack_id: T1190, matrix: enterprise, src: C-0001}
+hands_off_to:
+  - {group: beta, confidence: high, src: C-0002}
+  - {group: unknown_group, confidence: moderate, src: C-0002}

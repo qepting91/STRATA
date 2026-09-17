@@ -144,3 +144,156 @@ def test_node_upsert_is_idempotent(db_conn: sqlite3.Connection) -> None:
     ).fetchone()
     assert row["label"] == "second label"
     assert store.count_nodes_by_type(db_conn)["vuln"] == 1
+
+
+def test_node_attrs_merge_upsert_preserves_old_fields(
+    db_conn: sqlite3.Connection,
+) -> None:
+    """Regression test: a second insert with different new fields must not
+    clobber fields written by an earlier insert (e.g. KEV writing
+    vendor_project, then NVD later adding cvss_v31 to the same CVE node)."""
+    import json
+
+    store.insert_node(
+        db_conn,
+        id="CVE-2024-9999",
+        type="vuln",
+        label="CVE-2024-9999",
+        attrs=json.dumps({"vendor_project": "Acme", "date_added": "2024-01-01"}),
+        created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_node(
+        db_conn,
+        id="CVE-2024-9999",
+        type="vuln",
+        label="CVE-2024-9999",
+        attrs=json.dumps({"cvss_v31_base": 8.2, "cwe": ["CWE-287"]}),
+        created_at="2026-01-01T00:00:00Z",
+    )
+
+    row = db_conn.execute(
+        "SELECT attrs FROM node WHERE id = ?", ("CVE-2024-9999",)
+    ).fetchone()
+    merged = json.loads(row["attrs"])
+
+    # Old fields survive...
+    assert merged["vendor_project"] == "Acme"
+    assert merged["date_added"] == "2024-01-01"
+    # ...and new fields land.
+    assert merged["cvss_v31_base"] == 8.2
+    assert merged["cwe"] == ["CWE-287"]
+
+
+def test_node_attrs_merge_upsert_new_key_wins_on_overlap(
+    db_conn: sqlite3.Connection,
+) -> None:
+    import json
+
+    store.insert_node(
+        db_conn,
+        id="CVE-2024-8888",
+        type="vuln",
+        label="CVE-2024-8888",
+        attrs=json.dumps({"cvss_v31_base": 5.0}),
+        created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_node(
+        db_conn,
+        id="CVE-2024-8888",
+        type="vuln",
+        label="CVE-2024-8888",
+        attrs=json.dumps({"cvss_v31_base": 9.8}),
+        created_at="2026-01-01T00:00:00Z",
+    )
+    row = db_conn.execute(
+        "SELECT attrs FROM node WHERE id = ?", ("CVE-2024-8888",)
+    ).fetchone()
+    assert json.loads(row["attrs"])["cvss_v31_base"] == 9.8
+
+
+def test_get_all_vuln_cve_ids(db_conn: sqlite3.Connection) -> None:
+    store.insert_node(
+        db_conn,
+        id="CVE-2024-1111",
+        type="vuln",
+        label="CVE-2024-1111",
+        attrs=None,
+        created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_node(
+        db_conn,
+        id="advisory-x",
+        type="advisory",
+        label="X",
+        attrs=None,
+        created_at="2026-01-01T00:00:00Z",
+    )
+    assert store.get_all_vuln_cve_ids(db_conn) == {"CVE-2024-1111"}
+
+
+def test_insert_signal_and_count_by_source(db_conn: sqlite3.Connection) -> None:
+    store.insert_source(
+        db_conn,
+        id="src-signal",
+        name="poc-github",
+        url="https://example.test",
+        fetched_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_signal(
+        db_conn,
+        id="sig-1",
+        cve="CVE-2024-1111",
+        source="poc-github",
+        signal_type="poc_repo_created",
+        ref="https://github.com/foo/bar",
+        observed_at="2024-02-01T00:00:00Z",
+        meta=None,
+        source_id="src-signal",
+    )
+    assert store.count_signals_by_source(db_conn) == {"poc-github": 1}
+
+
+def test_insert_signal_with_invalid_source_id_raises(
+    db_conn: sqlite3.Connection,
+) -> None:
+    with pytest.raises(sqlite3.IntegrityError):
+        store.insert_signal(
+            db_conn,
+            id="sig-bad",
+            cve="CVE-2024-1111",
+            source="poc-github",
+            signal_type="poc_repo_created",
+            ref=None,
+            observed_at="2024-02-01T00:00:00Z",
+            meta=None,
+            source_id="does-not-exist",
+        )
+
+
+def test_insert_metric_observation_and_count(db_conn: sqlite3.Connection) -> None:
+    store.insert_source(
+        db_conn,
+        id="src-epss",
+        name="epss",
+        url="https://api.first.org/data/v1/epss",
+        fetched_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_node(
+        db_conn,
+        id="CVE-2024-1111",
+        type="vuln",
+        label="CVE-2024-1111",
+        attrs=None,
+        created_at="2026-01-01T00:00:00Z",
+    )
+    store.insert_metric_observation(
+        db_conn,
+        id="CVE-2024-1111-epss-2026-01-01",
+        node_id="CVE-2024-1111",
+        metric_name="epss",
+        value=0.42,
+        model_version=None,
+        observed_at="2026-01-01",
+        source_id="src-epss",
+    )
+    assert store.count_metric_observations_by_name(db_conn) == {"epss": 1}

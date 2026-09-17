@@ -1,0 +1,17 @@
+{
+  "type": "bundle",
+  "id": "bundle--test-ics",
+  "objects": [
+    {
+      "type": "attack-pattern",
+      "id": "attack-pattern--ics-1",
+      "name": "Remote Services",
+      "kill_chain_phases": [
+        {"kill_chain_name": "mitre-ics-attack", "phase_name": "lateral-movement"}
+      ],
+      "external_references": [
+        {"source_name": "mitre-attack", "external_id": "T0886", "url": "https://attack.mitre.org/techniques/T0886"}
+      ]
+    }
+  ]
+}

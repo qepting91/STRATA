@@ -1,0 +1,9 @@
+id: gamma
+name: GAMMA
+naming_org: TestOrg
+ics_kill_chain_stage: 1
+role: initial_access_broker
+targets:
+  sectors: [oil_gas]
+  geos: [US]
+  src: C-9999

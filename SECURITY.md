@@ -54,11 +54,28 @@ JSON, CSV, or plain text — never a binary/executable payload.
 
 ## Secrets handling
 
-`NVD_API_KEY` (reserved for the Week 2 NVD collector; unused this week)
-is read from the environment only, via `pydantic-settings`, optionally
-sourced from a local `.env` file. `.env` is listed in `.gitignore` and
-must never be committed. `.env.example` documents the expected variable
-name with an empty value.
+`NVD_API_KEY` is read from the environment only, via `pydantic-settings`,
+optionally sourced from a local `.env` file. `.env` is listed in
+`.gitignore` and must never be committed. `.env.example` documents the
+expected variable name with an empty value.
+
+`Settings.nvd_api_key` is typed as `pydantic.SecretStr`, not a plain
+`str`, so a stray `repr(settings)`/log line masks it rather than printing
+the raw value; the one call site that needs the real value
+(`collect/nvd.py`, via `cli.py`) unwraps it explicitly with
+`get_secret_value()`. The key is sent to NVD as a request header
+(`apiKey`) via `NetClient.fetch()`'s `extra_headers` parameter, which is
+merged into the outbound request only — it is never part of the
+cache/manifest key, never written into `manifest.json` or the `source`
+table's `url` column, and never appears in an exception message (only
+`host`, never a full URL with credentials, is ever interpolated into
+`EgressDenied`). This was specifically reviewed: an earlier draft of the
+NVD collector loaded the key but never actually sent it (the collector
+had no way to pass a header through `net.py` at all), which a security
+review caught before it was fixed — worth noting here since the
+easy-but-wrong fix would have been appending `&apiKey=...` to the URL
+string, which *would* have leaked into the manifest and the `source`
+table.
 
 ## Supply chain
 

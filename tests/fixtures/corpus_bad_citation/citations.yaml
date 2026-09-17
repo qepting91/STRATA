@@ -1,0 +1,8 @@
+C-0001:
+  publisher: TestPublisher
+  url: https://example.test/report-1
+  retrieved: "2026-01-01"
+C-0002:
+  publisher: TestPublisher
+  url: https://example.test/report-2
+  retrieved: "2026-01-02"

@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/local/strata/corpus/schema/group.schema.json",
+  "title": "STRATA corpus group entry",
+  "description": "Documented contract for corpus/groups/<id>.yaml. This is the reference schema for the format; runtime validation is currently performed by the pydantic models in src/strata/normalize/models.py (see README for why: adding a jsonschema dependency for a second, redundant validation pass wasn't judged worth it for Week 2). Any change to this file should be mirrored in models.py and vice versa.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Lowercase slug, used as the group node's id in the graph. Must match the YAML filename's stem."
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name, e.g. the Dragos-assigned group name in its canonical casing."
+    },
+    "naming_org": {
+      "type": ["string", "null"],
+      "description": "Organization that coined this group's primary name."
+    },
+    "ics_kill_chain_stage": {
+      "type": ["integer", "null"],
+      "enum": [1, 2, null],
+      "description": "ICS Cyber Kill Chain stage this group primarily operates at (1 = IT/enterprise intrusion and access development, 2 = OT-specific disruption/impact)."
+    },
+    "role": {
+      "type": ["string", "null"],
+      "description": "Free-text role description, e.g. 'initial_access_broker'. Not an enum -- new roles don't require a schema change."
+    },
+    "aliases": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/citedName" }
+    },
+    "targets": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["src"],
+      "properties": {
+        "sectors": { "type": "array", "items": { "type": "string" } },
+        "geos": { "type": "array", "items": { "type": "string" } },
+        "src": { "$ref": "#/definitions/citationId" }
+      }
+    },
+    "exploits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["cve", "src"],
+        "properties": {
+          "cve": { "type": "string", "pattern": "^CVE-\\d{4}-\\d+$" },
+          "product": { "type": ["string", "null"] },
+          "src": { "$ref": "#/definitions/citationId" }
+        }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "src"],
+        "properties": {
+          "name": { "type": "string" },
+          "class": { "type": ["string", "null"] },
+          "oss": { "type": "boolean", "default": false },
+          "src": { "$ref": "#/definitions/citationId" }
+        }
+      }
+    },
+    "techniques": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["attack_id", "src"],
+        "properties": {
+          "attack_id": { "type": "string", "pattern": "^T\\d{4}(\\.\\d{3})?$" },
+          "matrix": { "type": "string", "enum": ["enterprise", "ics"], "default": "enterprise" },
+          "src": { "$ref": "#/definitions/citationId" }
+        }
+      }
+    },
+    "hands_off_to": {
+      "type": "array",
+      "description": "Handoff edges to other groups. A referenced group need not have its own corpus/groups/<id>.yaml file yet -- the loader stub-creates a bare node for it so the edge is still valid and cited.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["group", "src"],
+        "properties": {
+          "group": { "type": "string" },
+          "confidence": { "type": ["string", "null"], "enum": ["high", "moderate", "low", null] },
+          "src": { "$ref": "#/definitions/citationId" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "citationId": {
+      "type": "string",
+      "pattern": "^S-\\d{4}$",
+      "description": "Must resolve to a key in corpus/citations.yaml; the loader raises CitationNotFoundError otherwise."
+    },
+    "citedName": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "src"],
+      "properties": {
+        "name": { "type": "string" },
+        "org": { "type": ["string", "null"] },
+        "src": { "$ref": "#/definitions/citationId" }
+      }
+    }
+  }
+}
