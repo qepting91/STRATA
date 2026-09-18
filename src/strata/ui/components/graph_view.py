@@ -7,9 +7,10 @@ project's egress-allowlist model (a CDN fetch from the UI would be
 exactly the kind of hole the allowlist in the collectors is designed to
 prevent, per spec section 15.1's own reasoning).
 
-Rendered to a local HTML string and embedded via
-st.components.v1.html -- no temp file server, no port beyond Streamlit's
-own.
+Rendered to a local HTML string and embedded via st.iframe -- no temp
+file server, no port beyond Streamlit's own. The HTML embedded here is
+always self-generated from our own graph data (never user/external
+input), so st.iframe's untrusted-HTML warning does not apply.
 """
 
 from __future__ import annotations
@@ -59,4 +60,4 @@ def render_graph(graph: nx.DiGraph, height: str = "500px") -> None:
         net.add_edge(src, dst, title=edge_type, label=edge_type)
 
     html = net.generate_html(notebook=False)
-    st.components.v1.html(html, height=int(height.replace("px", "")) + 50, scrolling=True)
+    st.iframe(html, height=int(height.replace("px", "")) + 50)

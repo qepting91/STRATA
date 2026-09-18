@@ -152,6 +152,187 @@ def load_tool_index() -> dict[str, dict]:
         conn.close()
 
 
+@st.cache_data(ttl=300)
+def load_node_type_counts() -> dict[str, int]:
+    """Return real node counts by type, for populating the Search page's
+    type filter dynamically (never a hardcoded type list)."""
+    conn = _connect()
+    try:
+        return store.count_nodes_by_type(conn)
+    finally:
+        conn.close()
+
+
+@st.cache_data(ttl=300)
+def load_purdue_level_options() -> list[str]:
+    """Return the real, distinct Purdue levels actually present on any
+    classified product node, for the Search page's Purdue-level filter."""
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT json_extract(attrs, '$.purdue_level') AS level "
+            "FROM node WHERE type = 'product' AND level IS NOT NULL "
+            "ORDER BY level"
+        ).fetchall()
+        return [str(r["level"]) for r in rows]
+    finally:
+        conn.close()
+
+
+def _node_detail_line(node_type: str, attrs: dict) -> str:
+    """One-line, type-specific summary for a search-result row.
+
+    Deliberately per-type rather than a generic attrs dump -- an analyst
+    scanning results wants the one or two facts that actually distinguish
+    a row of that type, not a wall of JSON.
+    """
+    if node_type == "group":
+        role = attrs.get("role") or "(role unstated)"
+        stage = attrs.get("ics_kill_chain_stage")
+        stage_text = f"Stage {stage}" if stage is not None else "Stage unstated"
+        return f"{role} -- {stage_text}"
+    if node_type == "vuln":
+        cvss = attrs.get("cvss_v31_base")
+        ransomware = attrs.get("known_ransomware_campaign_use")
+        parts = []
+        if cvss is not None:
+            parts.append(f"CVSS {cvss}")
+        if ransomware:
+            parts.append(f"ransomware use: {ransomware}")
+        description = attrs.get("description")
+        if description:
+            parts.append(_truncate(description, 140) or "")
+        return " -- ".join(p for p in parts if p) or "(no enrichment data)"
+    if node_type == "product":
+        vendor = attrs.get("vendor") or "(vendor unknown)"
+        purdue = attrs.get("purdue_level")
+        purdue_text = f"Purdue {purdue}" if purdue is not None else "Purdue unmapped"
+        return f"{vendor} -- {purdue_text}"
+    if node_type == "tool":
+        tool_class = attrs.get("class") or "(class unstated)"
+        software_id = attrs.get("attack_software_id")
+        return f"{tool_class}" + (f" -- ATT&CK {software_id}" if software_id else "")
+    if node_type == "technique":
+        return _truncate(attrs.get("description"), 140) or attrs.get("matrix", "")
+    if node_type == "advisory":
+        return attrs.get("initial_release_date") or ""
+    return ""
+
+
+@st.cache_data(ttl=300)
+def search_nodes(
+    keyword: str,
+    types: tuple[str, ...],
+    purdue_level: str | None,
+    ics_stage: int | None,
+    ransomware_only: str | None,
+    limit: int = 300,
+) -> pd.DataFrame:
+    """Search every node in the graph by keyword and type, with a few
+    dynamic, type-conditioned filters layered on top.
+
+    `keyword` matches (case-insensitively) against the node's own id,
+    label, or raw attrs JSON text -- so a search for "modbus" finds it
+    whether it appears in a CVE description, a tool name, or a technique
+    name. Every filter is applied via a bound parameter, never string-
+    interpolated. Returns at most `limit` rows (real total count is
+    reported separately by the caller via a COUNT(*) query) -- this is a
+    search results page, not an unbounded dump.
+    """
+    conn = _connect()
+    try:
+        where = ["1=1"]
+        params: list[object] = []
+
+        if types:
+            placeholders = ",".join("?" for _ in types)
+            where.append(f"type IN ({placeholders})")
+            params.extend(types)
+
+        if keyword:
+            like = f"%{keyword}%"
+            where.append("(id LIKE ? OR label LIKE ? OR attrs LIKE ?)")
+            params.extend([like, like, like])
+
+        if purdue_level:
+            where.append("json_extract(attrs, '$.purdue_level') = ?")
+            params.append(purdue_level)
+
+        if ics_stage is not None:
+            where.append("json_extract(attrs, '$.ics_kill_chain_stage') = ?")
+            params.append(ics_stage)
+
+        if ransomware_only:
+            where.append("json_extract(attrs, '$.known_ransomware_campaign_use') = ?")
+            params.append(ransomware_only)
+
+        query = (
+            "SELECT id, type, label, attrs FROM node WHERE "
+            + " AND ".join(where)
+            + " ORDER BY type, label LIMIT ?"
+        )
+        rows = conn.execute(query, [*params, limit]).fetchall()
+
+        count_query = "SELECT COUNT(*) AS n FROM node WHERE " + " AND ".join(where)
+        total = conn.execute(count_query, params).fetchone()["n"]
+
+        records = []
+        for row in rows:
+            attrs = {}
+            if row["attrs"]:
+                try:
+                    attrs = json.loads(row["attrs"])
+                except json.JSONDecodeError:
+                    attrs = {}
+            if not isinstance(attrs, dict):
+                attrs = {}
+            records.append(
+                {
+                    "id": row["id"],
+                    "type": row["type"],
+                    "label": row["label"],
+                    "detail": _node_detail_line(row["type"], attrs),
+                }
+            )
+        df = pd.DataFrame.from_records(records)
+        df.attrs["total_matches"] = total
+        return df
+    finally:
+        conn.close()
+
+
+@st.cache_data(ttl=300)
+def load_node_full(node_id: str) -> dict | None:
+    """Return one node's id/type/label/attrs plus its real outgoing and
+    incoming edges (each with a resolvable source citation) -- the
+    Search page's "inspect one result" drill-down, reusing the exact same
+    store helpers the Threat Groups page uses so provenance rendering
+    never drifts between pages."""
+    conn = _connect()
+    try:
+        row = conn.execute(
+            "SELECT id, type, label, attrs FROM node WHERE id = ?", (node_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        attrs = {}
+        if row["attrs"]:
+            try:
+                attrs = json.loads(row["attrs"])
+            except json.JSONDecodeError:
+                attrs = {}
+        return {
+            "id": row["id"],
+            "type": row["type"],
+            "label": row["label"],
+            "attrs": attrs if isinstance(attrs, dict) else {},
+            "outgoing": store.get_outgoing_edges(conn, node_id),
+            "incoming": store.get_incoming_edges(conn, node_id),
+        }
+    finally:
+        conn.close()
+
+
 def get_hunt_hypotheses_dir() -> str:
     """Resolve the hunt-hypotheses directory, overridable for tests.
 

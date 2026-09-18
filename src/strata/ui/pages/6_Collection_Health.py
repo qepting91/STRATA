@@ -31,7 +31,7 @@ if latest:
         pd.DataFrame(
             [{"source": k, "latest_fetched_at (UTC)": v} for k, v in latest.items()]
         ),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
     st.caption(
@@ -51,7 +51,7 @@ with col_a:
             pd.DataFrame(
                 [{"type": k, "count": v} for k, v in node_counts.items()]
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     else:
@@ -64,7 +64,7 @@ with col_a:
             pd.DataFrame(
                 [{"source": k, "count": v} for k, v in signal_counts.items()]
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     else:
@@ -78,7 +78,7 @@ with col_b:
             pd.DataFrame(
                 [{"type": k, "count": v} for k, v in edge_counts.items()]
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     else:
@@ -91,7 +91,7 @@ with col_b:
             pd.DataFrame(
                 [{"metric_name": k, "count": v} for k, v in metric_counts.items()]
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     else:
@@ -111,7 +111,7 @@ if thin_groups:
                 "citation_ids": "Citation ids",
             }
         ),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 else:

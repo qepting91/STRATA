@@ -130,7 +130,7 @@ for metric_name in metric_names:
         with st.expander(f"Show all {n:,} underlying rows"):
             st.dataframe(
                 subset.rename(columns=_COLUMN_LABELS).reset_index(drop=True),
-                use_container_width=True,
+                width="stretch",
             )
 
     elif len(subset) < 3:
@@ -145,7 +145,7 @@ for metric_name in metric_names:
             subset[["node_id", "value", "observed_at"]]
             .rename(columns=_COLUMN_LABELS)
             .reset_index(drop=True),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
         for _, r in subset.iterrows():
@@ -182,7 +182,7 @@ for metric_name in metric_names:
             subset[["node_id", "value", "observed_at"]]
             .rename(columns=_COLUMN_LABELS)
             .reset_index(drop=True),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 

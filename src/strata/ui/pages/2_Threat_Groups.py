@@ -218,7 +218,7 @@ with tab_exploits:
             "any) and per-row citation, shown as a table since this is "
             "richer, more heterogeneous data than a sector/geo tag."
         )
-        st.dataframe(_edge_table(exploits, "CVE"), use_container_width=True, hide_index=True)
+        st.dataframe(_edge_table(exploits, "CVE"), width="stretch", hide_index=True)
 
 with tab_tools:
     if not tools:
@@ -234,7 +234,7 @@ with tab_tools:
         tool_index = load_tool_index()
         st.dataframe(
             _tool_table(tools, tool_index),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={
                 "MITRE ATT&CK software": st.column_config.LinkColumn(display_text="View →")

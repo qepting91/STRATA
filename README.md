@@ -108,6 +108,10 @@ Everything above is also summarized in "Running it" further down, and in
 via a `mode=ro` SQLite URI — it is architecturally incapable of writing to
 the database):
 
+- **Search** — keyword search plus dynamic filtering (node type, Purdue
+  level, ICS Kill Chain stage, known ransomware use) across every real
+  node in the graph, with drill-down into any result's real outgoing/
+  incoming edges and their source citations.
 - **Threat Groups** — pick any of the 26 tracked groups; see its real
   targeted sectors/geographies, exploited CVEs, tools, ATT&CK techniques,
   and access hand-offs to/from other groups — each claim citing its real

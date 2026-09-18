@@ -39,6 +39,9 @@ happen via the `strata` CLI (`strata collect`, `strata build`).
 
 Use the sidebar to navigate:
 
+- **Search** -- keyword + dynamic filtering across every real node in the
+  graph (threat groups, CVEs, tools, techniques, products, and more),
+  with drill-down into any result's real edges and citations.
 - **Threat Groups** -- pick a group, see its targets/exploits/tools/
   techniques/handoffs, each with an inline source citation and a real
   MITRE ATT&CK technique/software link where one exists.

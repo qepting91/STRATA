@@ -93,7 +93,7 @@ else:
     st.bar_chart(chart_df["cve_mass"])
     st.dataframe(
         purdue_df.rename(columns={"purdue_level": "Purdue level", "cve_mass": "Distinct CVEs"}),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 

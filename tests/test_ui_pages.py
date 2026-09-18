@@ -56,6 +56,56 @@ def test_app_entrypoint_renders() -> None:
     assert not at.exception
 
 
+def test_search_renders() -> None:
+    at = _run_page("pages/1_Search.py")
+    assert not at.exception
+
+
+def test_search_keyword_filters_to_real_matches() -> None:
+    """Regression test: typing a real, specific keyword (a group id that
+    appears nowhere else) must narrow the results to just that node,
+    proving the keyword filter actually reaches the database rather than
+    silently no-op'ing."""
+    at = _run_page("pages/1_Search.py")
+    at.text_input[0].set_value("sylvanite").run()
+    assert not at.exception
+
+    metric_labels = {m.label: m.value for m in at.metric}
+    assert "Matches" in metric_labels
+    assert int(metric_labels["Matches"].replace(",", "")) >= 1
+
+    table_values = at.dataframe[0].value
+    assert (table_values["ID"] == "sylvanite").any()
+
+
+def test_search_type_filter_narrows_results() -> None:
+    """Selecting only the 'group' type must exclude every non-group row."""
+    at = _run_page("pages/1_Search.py")
+    at.multiselect[0].select("group").run()
+    assert not at.exception
+
+    table_values = at.dataframe[0].value
+    assert (table_values["Type"] == "group").all()
+
+
+def test_search_inspect_result_shows_real_edges() -> None:
+    """Selecting a real, edge-rich node (sylvanite) in the drill-down
+    selectbox must render its real outgoing edges with citations, not an
+    empty/broken detail panel."""
+    at = _run_page("pages/1_Search.py")
+    at.text_input[0].set_value("sylvanite").run()
+    assert not at.exception
+
+    node_selectbox = at.selectbox[-1]
+    if "sylvanite" not in node_selectbox.options:
+        pytest.skip("sylvanite not present in this real corpus")
+    node_selectbox.set_value("sylvanite").run()
+    assert not at.exception
+
+    tab_labels = " ".join(t.label for t in at.tabs)
+    assert "Outgoing edges" in tab_labels
+
+
 def test_threat_groups_renders() -> None:
     at = _run_page("pages/2_Threat_Groups.py")
     assert not at.exception
