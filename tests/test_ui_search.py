@@ -37,7 +37,13 @@ def search_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     )
     store.insert_node(
         conn, id="vendor_a_product", type="product", label="Product A",
-        attrs=json.dumps({"vendor": "Vendor A", "purdue_level": "3.5"}),
+        # purdue_level is a JSON *number* in real data (enrich/purdue.py
+        # writes it from config/purdue_map.yaml's numeric level values,
+        # e.g. 1, 3, 3.5) -- not a string. A string here would silently
+        # mask the real bug this fixture exists to catch (json_extract()
+        # returns a typed int/real, which never equality-matches a bound
+        # TEXT parameter under SQLite's storage-class comparison rules).
+        attrs=json.dumps({"vendor": "Vendor A", "purdue_level": 3.5}),
         created_at=fetched_at,
     )
     store.insert_edge(

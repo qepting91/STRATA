@@ -255,7 +255,15 @@ def search_nodes(
             params.extend([like, like, like])
 
         if purdue_level:
-            where.append("json_extract(attrs, '$.purdue_level') = ?")
+            # purdue_level is stored as a JSON *number* (int or float,
+            # e.g. 1 or 3.5), so json_extract() returns it typed as
+            # integer/real -- comparing that directly to the bound TEXT
+            # parameter this filter's dropdown supplies (needed since
+            # Streamlit widgets return strings) never matches under
+            # SQLite's strict storage-class equality rules. Found live:
+            # selecting any real Purdue level returned zero rows. Cast
+            # the extracted value to TEXT before comparing.
+            where.append("CAST(json_extract(attrs, '$.purdue_level') AS TEXT) = ?")
             params.append(purdue_level)
 
         if ics_stage is not None:

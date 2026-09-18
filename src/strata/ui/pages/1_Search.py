@@ -69,6 +69,17 @@ with dynamic_cols[0]:
         purdue_options = load_purdue_level_options()
         choice = st.selectbox("Purdue level", ["All"] + purdue_options)
         purdue_level = None if choice == "All" else choice
+        st.caption(
+            "Real, but a weaker signal than it looks: `config/purdue_map.yaml` "
+            "only assigns a level to purpose-built, single-role devices "
+            "(PLCs, cellular gateways, firewalls, VFDs) where the level is "
+            "effectively fixed regardless of deployment. A general-purpose "
+            "platform (a Windows host, a hypervisor) can sit at very "
+            "different real Purdue levels depending on what's actually "
+            "installed on it -- this classifier does not attempt that "
+            "judgment call, and none of the mapped products require it "
+            "today."
+        )
 
 with dynamic_cols[1]:
     if "group" in active_types:
